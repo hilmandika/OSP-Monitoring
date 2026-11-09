@@ -391,12 +391,6 @@ async function handleStaticApiFallback(urlStr, options = {}) {
         }
         if (endpoint === "/topology") {
             await ensureStaticAuthenticated();
-            const localTopo = localStorage.getItem("osp_static_topology");
-            if (localTopo) {
-                try {
-                    return jsonResponse(JSON.parse(localTopo));
-                } catch (e) {}
-            }
             return fetchAndDecryptStaticJson("./static_data/topology.json");
         }
         if (endpoint === "/console/optical-scan") {
