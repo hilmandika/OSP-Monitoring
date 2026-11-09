@@ -1080,11 +1080,13 @@
 
                         <!-- Target Device Credentials Sub-section -->
                         <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-                            <span style="font-size: 0.7rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Target Device Auth Password</span>
+                            <span style="font-size: 0.7rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Target Device Credentials</span>
                             <div style="display: flex; gap: 8px;">
-                                <input type="hidden" id="console-ssh-dev-user" value="admin" />
-                                <div style="flex: 1;">
-                                    <input type="password" id="console-ssh-dev-pass" placeholder="Enter Target Password" style="width: 100%; padding: 6px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.75rem;" />
+                                <div style="flex: 0.85;">
+                                    <input type="text" id="console-ssh-dev-user" value="admin" placeholder="Target Username" title="Target Device SSH Username" style="width: 100%; padding: 6px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.75rem;" />
+                                </div>
+                                <div style="flex: 1.15;">
+                                    <input type="password" id="console-ssh-dev-pass" placeholder="Enter Target Password" title="Target Device SSH Password" style="width: 100%; padding: 6px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.75rem;" />
                                 </div>
                             </div>
                         </div>
@@ -1093,14 +1095,19 @@
                             <i class="fa-solid fa-plug"></i> Establish Tunnel
                         </button>
                         
-                        <!-- Multi-Router Scanning Section -->
+                        <!-- Multi-Device Scanning Section -->
                         <div style="border-top: 1px solid var(--border-color); padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
                             <span style="font-size: 0.7rem; color: var(--success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block;">Bulk Diagnostic Audit</span>
                             
-                            <!-- Scan Button -->
-                            <button id="console-diagnose-all-btn" class="btn btn-success" style="width: 100%; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--success); transition: all 0.2s;" title="Scan all routers in the topology sequentially and check optical power levels">
-                                <i class="fa-solid fa-network-wired"></i> Scan All Routers
-                            </button>
+                            <!-- Scan Buttons -->
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <button id="console-diagnose-all-btn" class="btn btn-success" style="width: 100%; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--success); transition: all 0.2s;" title="Scan all routers in the topology sequentially and check optical power levels">
+                                    <i class="fa-solid fa-network-wired"></i> Scan All Routers
+                                </button>
+                                <button id="console-diagnose-all-olts-btn" class="btn" style="width: 100%; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.45); color: #c084fc; transition: all 0.2s;" title="Scan all ZTE & Huawei OLTs in the topology sequentially and check uplink optical power levels">
+                                    <i class="fa-solid fa-server"></i> Scan All OLTs (ZTE / Huawei)
+                                </button>
+                            </div>
                             
                             <!-- Scan Control Buttons (Pause/Stop, hidden by default) -->
                             <div id="console-scan-controls" class="hidden" style="display: flex; gap: 8px; width: 100%;">
@@ -1160,7 +1167,7 @@
                             <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0;">
                                 <thead>
                                     <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.8);">
-                                        <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Router</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device</th>
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Target Connection</th>
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device Port</th>
                                         <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">Rx Power</th>

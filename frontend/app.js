@@ -2957,10 +2957,15 @@ function renderNmsLeafletMap() {
     
     // Group devices by geographic coordinate
     const filters = getVisibilityFilters();
+    const activeSelectionId = appState.nms.selectedNodeId;
+    const selectedConn = appState.nms.connections.find(c => c.id === appState.nms.selectedConnectionId);
+    const selectedPeerConns = selectedConn ? getRelatedPeerConnections(selectedConn) : [];
+    const selectedPeerConnIds = new Set(selectedPeerConns.map(c => c.id));
+
     const nokDeviceNames = new Set();
     if (filters.onlyOpticalNok) {
         appState.nms.connections.forEach(c => {
-            if (!c.hidden && getConnectionOpticalInfo(c).isNok) {
+            if (!c.hidden && (getConnectionOpticalInfo(c).isNok || selectedPeerConnIds.has(c.id))) {
                 nokDeviceNames.add(c.source);
                 nokDeviceNames.add(c.target);
             }
@@ -2985,8 +2990,6 @@ function renderNmsLeafletMap() {
         coordsMap[coordKey].push(dev);
     });
     
-    const activeSelectionId = appState.nms.selectedNodeId;
-    const selectedConn = appState.nms.connections.find(c => c.id === appState.nms.selectedConnectionId);
     const primaries = [];
     const deviceMapCoords = {};
     
@@ -3076,8 +3079,8 @@ function renderNmsLeafletMap() {
             const isConnSelected = conn.id === appState.nms.selectedConnectionId;
             const optInfo = getConnectionOpticalInfo(conn);
 
-            // When "Optical NOK Only" is toggled on, completely hide non-NOK links
-            if (filters.onlyOpticalNok && !optInfo.isNok) return;
+            // When "Optical NOK Only" is toggled on, hide non-NOK links unless it's a peer link of the clicked connection
+            if (filters.onlyOpticalNok && !optInfo.isNok && !selectedPeerConnIds.has(conn.id)) return;
 
             const connMatchesFilter = isLinkMatch;
             
@@ -4039,8 +4042,10 @@ function renderNmsGraph() {
                               (conn.source_interface && conn.source_interface.toLowerCase().includes(query)) ||
                               (conn.target_interface && conn.target_interface.toLowerCase().includes(query));
             }
-            // When "Optical NOK Only" is toggled on, completely hide non-NOK links
-            if (filters.onlyOpticalNok && !optInfo.isNok) {
+            // When "Optical NOK Only" is toggled on, hide non-NOK links unless it's a peer link of the clicked connection
+            const selectedConnObj = appState.nms.connections.find(c => c.id === appState.nms.selectedConnectionId);
+            const selectedPeerIds = new Set((selectedConnObj ? getRelatedPeerConnections(selectedConnObj) : []).map(c => c.id));
+            if (filters.onlyOpticalNok && !optInfo.isNok && !selectedPeerIds.has(conn.id)) {
                 return;
             }
             const getBezierPathD = (x1, y1, x2, y2, connId) => {
@@ -4151,8 +4156,10 @@ function renderNmsGraph() {
     // 2. Draw Devices Nodes
     const nokDeviceNames = new Set();
     if (getVisibilityFilters().onlyOpticalNok) {
+        const selectedConnObj = appState.nms.connections.find(c => c.id === appState.nms.selectedConnectionId);
+        const selectedPeerIds = new Set((selectedConnObj ? getRelatedPeerConnections(selectedConnObj) : []).map(c => c.id));
         appState.nms.connections.forEach(c => {
-            if (!c.hidden && getConnectionOpticalInfo(c).isNok) {
+            if (!c.hidden && (getConnectionOpticalInfo(c).isNok || selectedPeerIds.has(c.id))) {
                 nokDeviceNames.add(c.source);
                 nokDeviceNames.add(c.target);
             }
@@ -4565,6 +4572,23 @@ function selectNmsNode(nodeId) {
     }
 }
 
+function getRelatedPeerConnections(conn) {
+    if (!conn) return [];
+    const sDev = appState.nms.devices.find(d => d.name === conn.source);
+    const tDev = appState.nms.devices.find(d => d.name === conn.target);
+    const oltName = (sDev && sDev.type === "OLT") ? sDev.name : (tDev && tDev.type === "OLT") ? tDev.name : null;
+
+    return appState.nms.connections.filter(c => {
+        if (c.hidden) return false;
+        const samePair = (c.source === conn.source && c.target === conn.target) ||
+                         (c.source === conn.target && c.target === conn.source);
+        if (samePair) return true;
+        // If one endpoint is an OLT, also include any redundant/peer uplinks attached to that OLT
+        if (oltName && (c.source === oltName || c.target === oltName)) return true;
+        return false;
+    });
+}
+
 function selectNmsConnection(connId) {
     appState.nms.selectedNodeId = null;
     appState.nms.selectedConnectionId = connId;
@@ -4572,16 +4596,24 @@ function selectNmsConnection(connId) {
     const conn = appState.nms.connections.find(c => c.id === connId);
     if (!conn) return;
     
-    const allConnsInPair = appState.nms.connections.filter(c => 
-        (c.source === conn.source && c.target === conn.target) ||
-        (c.source === conn.target && c.target === conn.source)
-    );
+    const allConnsInPair = getRelatedPeerConnections(conn);
+    const peerDeviceSet = new Set();
+    allConnsInPair.forEach(c => {
+        peerDeviceSet.add(c.source);
+        peerDeviceSet.add(c.target);
+    });
     
-    // Highlight connection endpoint nodes
+    if (appState.nms.layoutMode === "geo") {
+        renderNmsLeafletMap();
+    } else if (appState.nms.layoutMode === "logical") {
+        renderNmsGraph();
+    }
+
+    // Highlight connection endpoint & peer nodes
     document.querySelectorAll(".nms-node").forEach(n => {
         const nodeId = n.getAttribute("data-id");
         const dev = appState.nms.devices.find(d => d.id === nodeId);
-        if (dev && (dev.name === conn.source || dev.name === conn.target)) {
+        if (dev && peerDeviceSet.has(dev.name)) {
             n.classList.add("selected");
         } else {
             n.classList.remove("selected");
@@ -4595,10 +4627,6 @@ function selectNmsConnection(connId) {
         if (hasAnyId) line.classList.add("selected");
         else line.classList.remove("selected");
     });
-    
-    if (appState.nms.layoutMode === "geo") {
-        renderNmsLeafletMap();
-    }
     
     showNmsConnectionDetailPanel(allConnsInPair, conn);
     zoomToNmsConnection(conn);
@@ -4679,7 +4707,7 @@ function showNmsConnectionDetailPanel(allConns, selectedConn) {
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
                     <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">
-                        ${connsList.length > 1 ? `Link #${index + 1}` : escapeHTML(c.source + ' ↔ ' + c.target)}
+                        ${connsList.length > 1 ? `${isClickedConn ? 'Selected' : 'Peer'} Link #${index + 1}: ${escapeHTML(c.source + ' ↔ ' + c.target)}` : escapeHTML(c.source + ' ↔ ' + c.target)}
                     </span>
                     <div style="display: flex; align-items: center; gap: 5px;">
                         <span class="badge" style="font-size: 0.64rem; padding: 2px 6px;">${c.bitrate || 10}G ${escapeHTML(c.type || 'Interlink')}</span>
@@ -7096,6 +7124,8 @@ async function initConsoleView() {
                 jbPassInput.disabled = false;
                 
                 document.getElementById("console-diagnose-all-btn").classList.add("hidden");
+                const diagAllOltsBtn = document.getElementById("console-diagnose-all-olts-btn");
+                if (diagAllOltsBtn) diagAllOltsBtn.classList.add("hidden");
                 
                 // Fade and disable target card
                 if (targetCard) {
@@ -7173,6 +7203,8 @@ async function initConsoleView() {
                         document.getElementById("console-status-text").innerText = `JUMPBOX GATEWAY CONNECTED: ${activeJbIp.toUpperCase()}`;
                         
                         document.getElementById("console-diagnose-all-btn").classList.remove("hidden");
+                        const diagAllOltsBtn = document.getElementById("console-diagnose-all-olts-btn");
+                        if (diagAllOltsBtn) diagAllOltsBtn.classList.remove("hidden");
                         
                         appendTerminalLine(res.message, "#10b981");
                         appendTerminalLine("[SSH: Jumpbox session verified. You may now connect to target network devices below.]", "#e2e8f0");
@@ -7435,11 +7467,15 @@ async function initConsoleView() {
                     const msg = JSON.parse(event.data);
                     if (msg.type === "output") {
                         outputBuffer += msg.data;
+                        const lowerData = msg.data.toLowerCase();
+                        if (lowerData.includes("{ <cr>") || lowerData.includes("---- more ----") || lowerData.includes("--more--")) {
+                            consoleState.ws.send(JSON.stringify({ type: "input", data: "\n" }));
+                        }
                         const lines = outputBuffer.split(/\r?\n/);
                         if (lines.length > 1) {
                             const lastLine = lines[lines.length - 1].trim();
-                            // If prompt has returned (ends with # or >)
-                            if (lastLine.endsWith("#") || lastLine.endsWith(">")) {
+                            // If prompt has returned (ends with #, >, or ])
+                            if ((lastLine.endsWith("#") || lastLine.endsWith(">") || lastLine.endsWith("]")) && !lastLine.includes("{ <cr>")) {
                                 clearTimeout(timeoutId);
                                 consoleState.ws.removeEventListener("message", handleMsg);
                                 resolve(outputBuffer);
@@ -7569,6 +7605,250 @@ async function initConsoleView() {
         return "Normal";
     }
 
+    function classifyDevicePlatform(dev) {
+        if (!dev) return "nokia_router";
+        const combined = `${dev.brand || ""} ${dev.model || ""} ${dev.type || ""}`.toLowerCase();
+        if (combined.includes("ma56") || combined.includes("ma58") || combined.includes("huawei")) {
+            return "huawei_olt";
+        }
+        if (combined.includes("c600") || combined.includes("c620") || combined.includes("c650") || combined.includes("c610")) {
+            return "zte_c600";
+        }
+        if (combined.includes("c300") || combined.includes("c320")) {
+            return "zte_c300";
+        }
+        if (combined.includes("c220")) {
+            return "zte_c220";
+        }
+        if ((dev.type || "").toLowerCase() === "olt" || combined.includes("zte")) {
+            return "zte_c600";
+        }
+        return "nokia_router";
+    }
+
+    function parseOltDdm(output, platform, portLabel = "") {
+        if (!output) return null;
+        const lines = output.split(/\r?\n/);
+
+        if (platform === "huawei_olt") {
+            let rxVal = null;
+            let lowAlarm = -19.00;
+            let lowWarn = -16.00;
+            let highWarn = -1.00;
+            let highAlarm = 1.00;
+
+            for (const line of lines) {
+                const lower = line.toLowerCase();
+                const numMatch = line.match(/:\s*(-?\d+(?:\.\d+)?)/);
+                if (!numMatch) continue;
+                const val = parseFloat(numMatch[1]);
+                if (isNaN(val)) continue;
+
+                if ((lower.includes("rx power(dbm)") || lower.includes("rx optical power")) && !lower.includes("threshold")) {
+                    rxVal = val;
+                } else if (lower.includes("rx power") && lower.includes("lowalarm")) {
+                    lowAlarm = val;
+                } else if (lower.includes("rx power") && lower.includes("lowwarn")) {
+                    lowWarn = val;
+                } else if (lower.includes("rx power") && lower.includes("highwarn")) {
+                    highWarn = val;
+                } else if (lower.includes("rx power") && lower.includes("highalarm")) {
+                    highAlarm = val;
+                }
+            }
+
+            if (rxVal !== null && rxVal > -60 && rxVal < 20) {
+                return {
+                    value: rxVal,
+                    highAlarm,
+                    highWarn,
+                    lowWarn,
+                    lowAlarm,
+                    displayText: `${rxVal.toFixed(2)} dBm`,
+                    toolTip: portLabel ? `Huawei GIU Port: ${portLabel}` : "Huawei SmartAX OLT DDM"
+                };
+            }
+        }
+
+        // ZTE OLT (C600v1, C620v1, C620, C300v210, C320v210, C220v1.2)
+        let rxVal = null;
+        let lowAlarm = -18.00;
+        let lowWarn = -15.00;
+        let highWarn = -1.00;
+        let highAlarm = 1.00;
+
+        for (const line of lines) {
+            const lower = line.toLowerCase();
+            // Match RxPower : -8.45(dbm) or Rx-Power : -8.45 dBm
+            if ((lower.includes("rxpower") || lower.includes("rx-power") || lower.includes("rx power")) &&
+                !lower.includes("high") && !lower.includes("low") && !lower.includes("alarm") && !lower.includes("warn")) {
+                const rxMatch = line.match(/(?:rxpower|rx-power|rx\s+power)\s*(?:\(dbm\))?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+                if (rxMatch) {
+                    const parsedRx = parseFloat(rxMatch[1]);
+                    if (!isNaN(parsedRx)) rxVal = parsedRx;
+                }
+            }
+
+            // Threshold lines on ZTE C600/C620/C300/C320:
+            // RxPower-High-Alarm:  1.00(dbm)        RxPower-Low-Alarm: -18.00(dbm)
+            // RxPower-High-Warn : -1.00(dbm)        RxPower-Low-Warn : -15.00(dbm)
+            const haMatch = line.match(/rx(?:power|-power)?[-_\s]*high[-_\s]*alarm\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+            if (haMatch) highAlarm = parseFloat(haMatch[1]);
+
+            const laMatch = line.match(/rx(?:power|-power)?[-_\s]*low[-_\s]*alarm\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+            if (laMatch) lowAlarm = parseFloat(laMatch[1]);
+
+            const hwMatch = line.match(/rx(?:power|-power)?[-_\s]*high[-_\s]*warn(?:ing)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+            if (hwMatch) highWarn = parseFloat(hwMatch[1]);
+
+            const lwMatch = line.match(/rx(?:power|-power)?[-_\s]*low[-_\s]*warn(?:ing)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i);
+            if (lwMatch) lowWarn = parseFloat(lwMatch[1]);
+
+            // Combined format on some ZTE C300/C220 versions: RxPower-High : 2.00/0.00(dbm)  RxPower-Low : -18.00/-15.00(dbm)
+            const combHigh = line.match(/rx(?:power|-power)?[-_\s]*high\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/i);
+            if (combHigh) {
+                highAlarm = parseFloat(combHigh[1]);
+                highWarn = parseFloat(combHigh[2]);
+            }
+            const combLow = line.match(/rx(?:power|-power)?[-_\s]*low\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/i);
+            if (combLow) {
+                lowAlarm = parseFloat(combLow[1]);
+                lowWarn = parseFloat(combLow[2]);
+            }
+        }
+
+        if (rxVal !== null && rxVal > -60 && rxVal < 20) {
+            return {
+                value: rxVal,
+                highAlarm,
+                highWarn,
+                lowWarn,
+                lowAlarm,
+                displayText: `${rxVal.toFixed(2)} dBm`,
+                toolTip: portLabel ? `OLT Uplink: ${portLabel}` : "ZTE OLT Optical Module DDM"
+            };
+        }
+
+        return parseNokiaDdm(output);
+    }
+
+    async function queryPortOpticalPower(dev, rawPort, execCmdFn) {
+        const platform = classifyDevicePlatform(dev);
+
+        if (platform === "nokia_router") {
+            const queryPort = getQueryPort(rawPort);
+            const output = await execCmdFn(`show port ${queryPort} optical`);
+            return parseNokiaDdm(output);
+        }
+
+        if (platform === "huawei_olt") {
+            // Huawei SmartAX MA5600T / MA5680T
+            let candidates = [];
+            const fspMatch = (rawPort || "").match(/(\d+)\/(\d+)\/(\d+)/);
+            if (fspMatch && rawPort !== "ge0/0/0") {
+                candidates.push({ frame: fspMatch[1], slot: fspMatch[2], port: fspMatch[3] });
+            } else {
+                // Default GIU uplink slots on MA5600T / MA5680T
+                candidates.push({ frame: "0", slot: "19", port: "0" });
+                candidates.push({ frame: "0", slot: "20", port: "0" });
+                candidates.push({ frame: "0", slot: "9", port: "0" });
+            }
+
+            try {
+                await execCmdFn("config", 5000);
+            } catch (e) { /* ignore */ }
+
+            let parsedResult = null;
+            for (const cand of candidates) {
+                try {
+                    await execCmdFn(`interface giu ${cand.frame}/${cand.slot}`, 5000);
+                    const ddmOut = await execCmdFn(`display port ddm-info ${cand.port}`, 8000);
+                    await execCmdFn("quit", 4000);
+                    const parsed = parseOltDdm(ddmOut, "huawei_olt", `giu ${cand.frame}/${cand.slot}/${cand.port}`);
+                    if (parsed) {
+                        parsedResult = parsed;
+                        break;
+                    }
+                } catch (e) {
+                    // Try next candidate
+                }
+            }
+            try {
+                await execCmdFn("quit", 4000);
+            } catch (e) { /* ignore */ }
+            return parsedResult;
+        }
+
+        // ZTE OLT (zte_c600, zte_c300, zte_c220)
+        const isTitanC600 = platform === "zte_c600";
+        let candidatePorts = [];
+
+        if (!rawPort || rawPort === "ge0/0/0") {
+            // Auto-discover active uplink port (xgei or gei) via show interface brief
+            try {
+                const briefOut = await execCmdFn("show interface brief", 8000);
+                const briefLines = briefOut.split(/\r?\n/);
+                for (const line of briefLines) {
+                    const m = line.match(/((?:xgei|gei|xge|ge)[-_]\d+\/\d+\/\d+)/i);
+                    if (m && /\bup\b/i.test(line)) {
+                        const foundPort = m[1];
+                        if (!candidatePorts.includes(foundPort)) {
+                            candidatePorts.push(foundPort);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Fallback if show interface brief fails
+            }
+            if (candidatePorts.length === 0) {
+                if (isTitanC600) {
+                    candidatePorts = ["xgei-1/4/1", "xgei-1/5/1"];
+                } else if (platform === "zte_c300") {
+                    const isC320 = (dev.model || "").toLowerCase().includes("c320");
+                    candidatePorts = isC320 ? ["xgei_1/3/1", "gei_1/3/1"] : ["xgei_1/19/1", "xgei_1/20/1"];
+                } else {
+                    candidatePorts = ["gei_0/14/1", "gei_0/13/1"];
+                }
+            }
+        } else {
+            const clean = rawPort.trim();
+            if (isTitanC600) {
+                // C600/C620 uses hyphen (e.g. xgei-1/4/1)
+                const hyphenPort = clean.replace("_", "-");
+                candidatePorts.push(hyphenPort);
+                if (!hyphenPort.startsWith("xgei") && !hyphenPort.startsWith("gei") && /^\d+\/\d+\/\d+$/.test(hyphenPort)) {
+                    candidatePorts.unshift(`xgei-${hyphenPort}`);
+                }
+            } else {
+                // C300/C320/C220 uses underscore (e.g. xgei_1/19/1) or hyphen depending on patch
+                const underPort = clean.replace("-", "_");
+                const hyphenPort = clean.replace("_", "-");
+                candidatePorts.push(underPort);
+                if (hyphenPort !== underPort) candidatePorts.push(hyphenPort);
+            }
+        }
+
+        for (const candPort of candidatePorts) {
+            const cmdsToTry = isTitanC600
+                ? [`show optical-module-info ${candPort}`, `show interface optical-module-info ${candPort}`]
+                : [`show interface optical-module-info ${candPort}`, `show optical-module-info ${candPort}`];
+
+            for (const cmd of cmdsToTry) {
+                try {
+                    const out = await execCmdFn(cmd, 8000);
+                    const parsed = parseOltDdm(out, platform, `${candPort} (${dev.model || dev.brand || "OLT"})`);
+                    if (parsed) {
+                        return parsed;
+                    }
+                } catch (e) {
+                    // Try next command variant
+                }
+            }
+        }
+
+        return null;
+    }
+
     if (diagnoseBtn && !diagnoseBtn.dataset.listenerBound) {
         diagnoseBtn.addEventListener("click", async () => {
             if (!consoleState.connected || !consoleState.selectedDevice) {
@@ -7657,16 +7937,9 @@ async function initConsoleView() {
                     `;
                     
                     try {
-                        const queryPort = getQueryPort(task.port);
-                        let cmd = `show port ${queryPort} optical`;
-                        if (activeDev.brand.toLowerCase() === "zte") {
-                            cmd = `show pon power olt-rx gpon_olt-${queryPort}`;
-                        }
-                        
                         // Execute command over stateful shell with a 500ms prompt buffer delay
                         await new Promise(r => setTimeout(r, 500));
-                        const output = await executeCommandViaSocket(cmd);
-                        const parsed = parseNokiaDdm(output);
+                        const parsed = await queryPortOpticalPower(activeDev, task.port, executeCommandViaSocket);
                         
                         if (parsed) {
                             const status = getThresholdStatus(parsed.value, parsed.lowAlarm, parsed.lowWarn, parsed.highWarn, parsed.highAlarm);
@@ -7802,7 +8075,7 @@ async function initConsoleView() {
                             const lines = outputBuffer.split(/\r?\n/);
                             if (lines.length > 1) {
                                 const lastLine = lines[lines.length - 1].trim();
-                                if (lastLine.endsWith("#") || lastLine.endsWith(">")) {
+                                if (lastLine.endsWith("#") || lastLine.endsWith(">") || lastLine.endsWith("]")) {
                                     hasPromptReturned = true;
                                     clearTimeout(timeoutId);
                                     runPortScans();
@@ -7880,10 +8153,14 @@ async function initConsoleView() {
                                 const msg = JSON.parse(e.data);
                                 if (msg.type === "output") {
                                     cmdBuffer += msg.data;
+                                    const lowerChunk = msg.data.toLowerCase();
+                                    if (lowerChunk.includes("{ <cr>") || lowerChunk.includes("---- more ----") || lowerChunk.includes("--more--")) {
+                                        ws.send(JSON.stringify({ type: "input", data: "\n" }));
+                                    }
                                     const lines = cmdBuffer.split(/\r?\n/);
                                     if (lines.length > 1) {
                                         const lastLine = lines[lines.length - 1].trim();
-                                        if (lastLine.endsWith("#") || lastLine.endsWith(">")) {
+                                        if ((lastLine.endsWith("#") || lastLine.endsWith(">") || lastLine.endsWith("]")) && !lastLine.includes("{ <cr>")) {
                                             clearTimeout(cmdTimeoutId);
                                             ws.removeEventListener("message", handleCmdMsg);
                                             resolveCmd(cmdBuffer);
@@ -7919,17 +8196,10 @@ async function initConsoleView() {
                         const task = uniquePorts[idx];
                         onProgress(task, idx, uniquePorts.length, "scanning");
                         
-                        const queryPort = getQueryPort(task.port);
-                        let cmd = `show port ${queryPort} optical`;
-                        if (router.brand.toLowerCase() === "zte") {
-                            cmd = `show pon power olt-rx gpon_olt-${queryPort}`;
-                        }
-                        
                         try {
                             // Execute command with a 500ms prompt buffer delay to ensure target stability
                             await new Promise(r => setTimeout(r, 500));
-                            const rawOutput = await execCmd(cmd);
-                            const parsed = parseNokiaDdm(rawOutput);
+                            const parsed = await queryPortOpticalPower(router, task.port, execCmd);
                             if (parsed) {
                                 onProgress(task, idx, uniquePorts.length, "success", parsed);
                                 results.push({ task, parsed, success: true });
@@ -7989,325 +8259,347 @@ async function initConsoleView() {
     }
 
     const diagnoseAllBtn = document.getElementById("console-diagnose-all-btn");
-    if (diagnoseAllBtn && !diagnoseAllBtn.dataset.listenerBound) {
-        diagnoseAllBtn.addEventListener("click", async () => {
-            if (!consoleState.jumpboxConnected || !consoleState.jumpboxAuth) {
-                alert("Please connect to a Jumpbox gateway first.");
-                return;
-            }
-            
-            const jbAuth = consoleState.jumpboxAuth;
-            const devUser = document.getElementById("console-ssh-dev-user").value || "admin";
-            const devPass = document.getElementById("console-ssh-dev-pass").value || "";
-            
-            // Gather all routers excluding those managed by outside party
-            const routers = (appState.nms && appState.nms.devices || [])
-                .filter(d => d.type === "Router" && !d.outside_managed);
-                
-            if (routers.length === 0) {
-                alert("No routers found in Network Topology to scan.");
-                return;
-            }
-            
-            // Initialize/Reset scan states
-            consoleState.scanRunning = true;
-            consoleState.scanPaused = false;
-            consoleState.scanStopped = false;
-            
-            // Reset Pause Button UI to default "Pause"
-            if (pauseBtn) {
-                const pauseText = document.getElementById("console-scan-pause-text");
-                if (pauseText) pauseText.innerText = "Pause";
-                pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> <span id="console-scan-pause-text">Pause</span>';
-                pauseBtn.style.background = "rgba(245, 158, 11, 0.15)";
-                pauseBtn.style.color = "#f59e0b";
-                pauseBtn.style.borderColor = "rgba(245, 158, 11, 0.4)";
-            }
-            
-            // Show control buttons and disable manual controls
-            if (scanControls) scanControls.classList.remove("hidden");
+    const diagnoseAllOltsBtn = document.getElementById("console-diagnose-all-olts-btn");
+
+    async function runBulkOpticalScan(targetDeviceType = "Router") {
+        if (!consoleState.jumpboxConnected || !consoleState.jumpboxAuth) {
+            alert("Please connect to a Jumpbox gateway first.");
+            return;
+        }
+
+        const isOltScan = targetDeviceType.toUpperCase() === "OLT";
+        const labelPlural = isOltScan ? "OLTs" : "routers";
+        const labelSingular = isOltScan ? "OLT" : "router";
+
+        const jbAuth = consoleState.jumpboxAuth;
+        const devUser = document.getElementById("console-ssh-dev-user").value || "admin";
+        const devPass = document.getElementById("console-ssh-dev-pass").value || "";
+
+        // Warn if connected jumpbox type differs from target device type
+        if (jbAuth.type && jbAuth.type.toLowerCase() !== targetDeviceType.toLowerCase()) {
+            appendTerminalLine(`[Warning: Starting bulk scan for ${labelPlural} while connected to the ${jbAuth.type.toUpperCase()} Jumpbox (${jbAuth.ip}).]`, "#f59e0b");
+        }
+
+        const targetDevices = (appState.nms && appState.nms.devices || [])
+            .filter(d => (d.type || "").toLowerCase() === targetDeviceType.toLowerCase() && !d.outside_managed);
+
+        if (targetDevices.length === 0) {
+            alert(`No ${labelPlural} found in Network Topology to scan.`);
+            return;
+        }
+
+        // Initialize/Reset scan states
+        consoleState.scanRunning = true;
+        consoleState.scanPaused = false;
+        consoleState.scanStopped = false;
+
+        // Reset Pause Button UI to default "Pause"
+        if (pauseBtn) {
+            const pauseText = document.getElementById("console-scan-pause-text");
+            if (pauseText) pauseText.innerText = "Pause";
+            pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> <span id="console-scan-pause-text">Pause</span>';
+            pauseBtn.style.background = "rgba(245, 158, 11, 0.15)";
+            pauseBtn.style.color = "#f59e0b";
+            pauseBtn.style.borderColor = "rgba(245, 158, 11, 0.4)";
+        }
+
+        // Show control buttons and disable manual controls
+        if (scanControls) scanControls.classList.remove("hidden");
+        if (diagnoseAllBtn) {
             diagnoseAllBtn.disabled = true;
-            diagnoseAllBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning All...';
-            if (diagnoseBtn) diagnoseBtn.disabled = true;
-            if (terminalInput) terminalInput.disabled = true;
-            
-            // Show diagnostics card and clear tbody
-            if (diagCard) diagCard.classList.remove("hidden");
-            if (diagTbody) diagTbody.innerHTML = "";
-            if (diagProgress) diagProgress.innerText = `Preparing serial scan...`;
-            
-            appendTerminalLine(`\n[Diagnostics: Starting sequential optical power scan on ${routers.length} routers...]`, "#3b82f6");
-            
-            // Calculate total unique ports across all routers to render placeholders
-            const scanQueue = [];
-            const connections = (appState.nms && appState.nms.connections) || [];
-            
-            routers.forEach(router => {
-                const routerPorts = [];
-                connections.forEach(conn => {
-                    if (conn.source === router.name) {
-                        routerPorts.push({
-                            router: router,
-                            target: conn.target,
-                            port: conn.source_interface,
-                            connectionId: conn.id
-                        });
-                    } else if (conn.target === router.name) {
-                        routerPorts.push({
-                            router: router,
-                            target: conn.source,
-                            port: conn.target_interface,
-                            connectionId: conn.id
-                        });
-                    }
-                });
-                
-                // Filter unique local ports
-                const uniquePorts = [];
-                const seen = new Set();
-                routerPorts.forEach(p => {
-                    if (!seen.has(p.port)) {
-                        seen.add(p.port);
-                        uniquePorts.push(p);
-                    }
-                });
-                
-                if (uniquePorts.length > 0) {
-                    scanQueue.push({
-                        router: router,
-                        ports: uniquePorts
+            if (!isOltScan) diagnoseAllBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning Routers...';
+        }
+        if (diagnoseAllOltsBtn) {
+            diagnoseAllOltsBtn.disabled = true;
+            if (isOltScan) diagnoseAllOltsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning OLTs...';
+        }
+        if (diagnoseBtn) diagnoseBtn.disabled = true;
+        if (terminalInput) terminalInput.disabled = true;
+
+        // Show diagnostics card and clear tbody
+        if (diagCard) diagCard.classList.remove("hidden");
+        if (diagTbody) diagTbody.innerHTML = "";
+        if (diagProgress) diagProgress.innerText = `Preparing serial scan...`;
+
+        appendTerminalLine(`\n[Diagnostics: Starting sequential optical power scan on ${targetDevices.length} ${labelPlural}...]`, isOltScan ? "#c084fc" : "#3b82f6");
+
+        // Calculate total unique ports across all target devices to render placeholders
+        const scanQueue = [];
+        const connections = (appState.nms && appState.nms.connections) || [];
+
+        targetDevices.forEach(dev => {
+            const devPorts = [];
+            connections.forEach(conn => {
+                if (conn.source === dev.name) {
+                    devPorts.push({
+                        router: dev,
+                        target: conn.target,
+                        port: conn.source_interface,
+                        connectionId: conn.id
+                    });
+                } else if (conn.target === dev.name) {
+                    devPorts.push({
+                        router: dev,
+                        target: conn.source,
+                        port: conn.target_interface,
+                        connectionId: conn.id
                     });
                 }
             });
-            
-            if (scanQueue.length === 0) {
-                appendTerminalLine("[Diagnostics: No connection ports found on any of the routers.]", "#f59e0b");
-                alert("No active ports found on any routers in the Network Topology connections.");
-                consoleState.scanRunning = false;
-                consoleState.scanPaused = false;
-                consoleState.scanStopped = false;
-                if (scanControls) scanControls.classList.add("hidden");
-                diagnoseAllBtn.disabled = false;
-                diagnoseAllBtn.innerHTML = '<i class="fa-solid fa-network-wired"></i> Scan All Routers';
-                if (diagnoseBtn && consoleState.connected) diagnoseBtn.disabled = false;
-                if (terminalInput) {
-                    terminalInput.disabled = false;
-                    terminalInput.focus();
+
+            // Filter unique local ports
+            const uniquePorts = [];
+            const seen = new Set();
+            devPorts.forEach(p => {
+                if (!seen.has(p.port)) {
+                    seen.add(p.port);
+                    uniquePorts.push(p);
                 }
-                return;
-            }
-            
-            // Render placeholders for all ports of all routers in the queue
-            let globalPortIdx = 0;
-            const portElementsMap = {};
-            
-            scanQueue.forEach(sq => {
-                sq.ports.forEach(task => {
-                    const tr = document.createElement("tr");
-                    const mapKey = `${sq.router.name}-${task.port}`;
-                    tr.id = `console-diag-all-row-${globalPortIdx}`;
-                    tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
-                    tr.innerHTML = `
-                        <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                        <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                        <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-hourglass-start"></i> Waiting...</td>
-                        <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Queued</span></td>
-                    `;
-                    diagTbody.appendChild(tr);
-                    portElementsMap[mapKey] = tr;
-                    globalPortIdx++;
-                });
             });
-            
-            const totalPorts = globalPortIdx;
-            let finishedPortsCount = 0;
-            const collectedAllResults = [];
-            
-            // Loop through each router sequentially
-            for (let rIdx = 0; rIdx < scanQueue.length; rIdx++) {
-                if (consoleState.scanStopped) {
-                    break;
-                }
-                while (consoleState.scanPaused && !consoleState.scanStopped) {
-                    await new Promise(r => setTimeout(r, 200));
-                }
-                if (consoleState.scanStopped) {
-                    break;
-                }
-                
-                if (rIdx > 0) {
-                    appendTerminalLine(`[System: Cooling down Jumpbox gateway connection for 3 seconds...]`, "var(--text-muted)");
-                    await new Promise(r => setTimeout(r, 3000));
-                }
-                
-                if (consoleState.scanStopped) {
-                    break;
-                }
-                
-                const sq = scanQueue[rIdx];
-                appendTerminalLine(`\nSSH: Serial Scan - Connecting to router ${sq.router.name} (${sq.router.ip})...`, "#e2e8f0");
-                
-                // Set all ports of this router to "Connecting"
-                sq.ports.forEach(task => {
-                    const mapKey = `${sq.router.name}-${task.port}`;
-                    const row = portElementsMap[mapKey];
-                    if (row) {
-                        row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                            <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Connecting to router...</td>
-                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Connecting</span></td>
-                        `;
-                    }
+
+            if (uniquePorts.length > 0) {
+                scanQueue.push({
+                    router: dev,
+                    ports: uniquePorts
                 });
-                
-                try {
-                    await scanSingleRouter(sq.router, jbAuth, devUser, devPass, (task, idx, len, status, extra) => {
-                        const mapKey = `${sq.router.name}-${task.port}`;
-                        const row = portElementsMap[mapKey];
-                        if (!row) return;
-                        
-                        if (status === "scanning") {
-                            row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Polling optical diagnostics...</td>
-                                <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Scanning</span></td>
-                            `;
-                        } else if (status === "success") {
-                            const parsed = extra;
-                            const tStatus = getThresholdStatus(parsed.value, parsed.lowAlarm, parsed.lowWarn, parsed.highWarn, parsed.highAlarm);
-                            
-                            let badgeStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981;";
-                            if (tStatus.includes("Warning")) {
-                                badgeStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b;";
-                            } else if (tStatus.includes("Alarm")) {
-                                badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #ef4444;";
-                            }
-                            
-                            row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                                <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace;" title="${escapeHTML(parsed.toolTip || '')}">${escapeHTML(parsed.displayText)}</td>
-                                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowAlarm.toFixed(2)}</td>
-                                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowWarn.toFixed(2)}</td>
-                                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.highWarn.toFixed(2)}</td>
-                                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.highAlarm.toFixed(2)}</td>
-                                <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="${badgeStyle}">${tStatus}</span></td>
-                            `;
-                            collectedAllResults.push({
-                                router: sq.router.name,
-                                target: task.target,
-                                port: task.port,
-                                status: "success",
-                                displayText: parsed.displayText,
-                                toolTip: parsed.toolTip || "",
-                                value: parsed.value,
-                                lowAlarm: parsed.lowAlarm,
-                                lowWarn: parsed.lowWarn,
-                                highWarn: parsed.highWarn,
-                                highAlarm: parsed.highAlarm,
-                                thresholdStatus: tStatus
-                            });
-                            finishedPortsCount++;
-                        } else if (status === "unsupported") {
-                            row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);">DDM parameters not supported on port.</td>
-                                <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
-                            `;
-                            collectedAllResults.push({
-                                router: sq.router.name,
-                                target: task.target,
-                                port: task.port,
-                                status: "unsupported"
-                            });
-                            finishedPortsCount++;
-                        } else if (status === "failed") {
-                            const errorMsg = extra;
-                            row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Error: ${escapeHTML(errorMsg)}</td>
-                                <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Failed</span></td>
-                            `;
-                            collectedAllResults.push({
-                                router: sq.router.name,
-                                target: task.target,
-                                port: task.port,
-                                status: "failed",
-                                errorMsg: errorMsg
-                            });
-                            finishedPortsCount++;
-                        }
-                        
-                        if (diagProgress) {
-                            diagProgress.innerText = `Ports: ${finishedPortsCount} / ${totalPorts} complete`;
-                        }
-                    });
-                    
-                    appendTerminalLine(`SSH: Serial Scan - Completed scan for router ${sq.router.name}.`, "#10b981");
-                } catch (routerErr) {
-                    appendTerminalLine(`SSH: Serial Scan - Failed to connect to ${sq.router.name}: ${routerErr.message}`, "var(--danger)");
-                    sq.ports.forEach(task => {
-                        const mapKey = `${sq.router.name}-${task.port}`;
-                        const row = portElementsMap[mapKey];
-                        if (row) {
-                            row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
-                                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Router connection failed: ${escapeHTML(routerErr.message)}</td>
-                                <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Unreachable</span></td>
-                            `;
-                            collectedAllResults.push({
-                                router: sq.router.name,
-                                target: task.target,
-                                port: task.port,
-                                status: "unreachable",
-                                errorMsg: routerErr.message
-                            });
-                            finishedPortsCount++;
-                        }
-                    });
-                    
-                    if (diagProgress) {
-                        diagProgress.innerText = `Ports: ${finishedPortsCount} / ${totalPorts} complete`;
-                    }
-                }
             }
-            
-            if (consoleState.scanStopped) {
-                appendTerminalLine(`\n[Diagnostics: Sequential multi-router optical scan aborted by user.]`, "var(--danger)");
-            } else {
-                appendTerminalLine(`\n[Diagnostics: Sequential multi-router optical scan finished. Total ports: ${totalPorts}.]`, "#10b981");
-            }
-            if (collectedAllResults.length > 0) {
-                await saveOpticalScanToServer(collectedAllResults, !consoleState.scanStopped);
-            }
-            
-            // Re-enable controls and reset states
+        });
+
+        const restoreScanButtons = () => {
             consoleState.scanRunning = false;
             consoleState.scanPaused = false;
             consoleState.scanStopped = false;
-            
             if (scanControls) scanControls.classList.add("hidden");
-            diagnoseAllBtn.disabled = false;
-            diagnoseAllBtn.innerHTML = '<i class="fa-solid fa-network-wired"></i> Scan All Routers';
+            if (diagnoseAllBtn) {
+                diagnoseAllBtn.disabled = false;
+                diagnoseAllBtn.innerHTML = '<i class="fa-solid fa-network-wired"></i> Scan All Routers';
+            }
+            if (diagnoseAllOltsBtn) {
+                diagnoseAllOltsBtn.disabled = false;
+                diagnoseAllOltsBtn.innerHTML = '<i class="fa-solid fa-server"></i> Scan All OLTs (ZTE / Huawei)';
+            }
             if (diagnoseBtn && consoleState.connected) diagnoseBtn.disabled = false;
             if (terminalInput) {
                 terminalInput.disabled = false;
                 terminalInput.focus();
             }
+        };
+
+        if (scanQueue.length === 0) {
+            appendTerminalLine(`[Diagnostics: No connection ports found on any of the ${labelPlural}.]`, "#f59e0b");
+            alert(`No active ports found on any ${labelPlural} in the Network Topology connections.`);
+            restoreScanButtons();
+            return;
+        }
+
+        // Render placeholders for all ports of all devices in the queue
+        let globalPortIdx = 0;
+        const portElementsMap = {};
+
+        scanQueue.forEach(sq => {
+            sq.ports.forEach(task => {
+                const tr = document.createElement("tr");
+                const mapKey = `${sq.router.name}-${task.port}`;
+                tr.id = `console-diag-all-row-${globalPortIdx}`;
+                tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
+                tr.innerHTML = `
+                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                    <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-hourglass-start"></i> Waiting...</td>
+                    <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Queued</span></td>
+                `;
+                diagTbody.appendChild(tr);
+                portElementsMap[mapKey] = tr;
+                globalPortIdx++;
+            });
         });
+
+        const totalPorts = globalPortIdx;
+        let finishedPortsCount = 0;
+        const collectedAllResults = [];
+
+        // Loop through each device sequentially
+        for (let rIdx = 0; rIdx < scanQueue.length; rIdx++) {
+            if (consoleState.scanStopped) {
+                break;
+            }
+            while (consoleState.scanPaused && !consoleState.scanStopped) {
+                await new Promise(r => setTimeout(r, 200));
+            }
+            if (consoleState.scanStopped) {
+                break;
+            }
+
+            if (rIdx > 0) {
+                appendTerminalLine(`[System: Cooling down Jumpbox gateway connection for 3 seconds...]`, "var(--text-muted)");
+                await new Promise(r => setTimeout(r, 3000));
+            }
+
+            if (consoleState.scanStopped) {
+                break;
+            }
+
+            const sq = scanQueue[rIdx];
+            const modelInfo = `${sq.router.brand || ""} ${sq.router.model || ""}`.trim();
+            appendTerminalLine(`\nSSH: Serial Scan - Connecting to ${labelSingular} ${sq.router.name} [${modelInfo}] (${sq.router.ip})...`, "#e2e8f0");
+
+            // Set all ports of this device to "Connecting"
+            sq.ports.forEach(task => {
+                const mapKey = `${sq.router.name}-${task.port}`;
+                const row = portElementsMap[mapKey];
+                if (row) {
+                    row.innerHTML = `
+                        <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                        <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                        <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Connecting to ${escapeHTML(labelSingular)}...</td>
+                        <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Connecting</span></td>
+                    `;
+                }
+            });
+
+            try {
+                await scanSingleRouter(sq.router, jbAuth, devUser, devPass, (task, idx, len, status, extra) => {
+                    const mapKey = `${sq.router.name}-${task.port}`;
+                    const row = portElementsMap[mapKey];
+                    if (!row) return;
+
+                    if (status === "scanning") {
+                        row.innerHTML = `
+                            <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Polling optical diagnostics...</td>
+                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Scanning</span></td>
+                        `;
+                    } else if (status === "success") {
+                        const parsed = extra;
+                        const tStatus = getThresholdStatus(parsed.value, parsed.lowAlarm, parsed.lowWarn, parsed.highWarn, parsed.highAlarm);
+
+                        let badgeStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981;";
+                        if (tStatus.includes("Warning")) {
+                            badgeStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b;";
+                        } else if (tStatus.includes("Alarm")) {
+                            badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #ef4444;";
+                        }
+
+                        row.innerHTML = `
+                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace;" title="${escapeHTML(parsed.toolTip || '')}">${escapeHTML(parsed.displayText)}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowAlarm.toFixed(2)}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowWarn.toFixed(2)}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.highWarn.toFixed(2)}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.highAlarm.toFixed(2)}</td>
+                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="${badgeStyle}">${tStatus}</span></td>
+                        `;
+                        collectedAllResults.push({
+                            router: sq.router.name,
+                            target: task.target,
+                            port: task.port,
+                            status: "success",
+                            displayText: parsed.displayText,
+                            toolTip: parsed.toolTip || "",
+                            value: parsed.value,
+                            lowAlarm: parsed.lowAlarm,
+                            lowWarn: parsed.lowWarn,
+                            highWarn: parsed.highWarn,
+                            highAlarm: parsed.highAlarm,
+                            thresholdStatus: tStatus
+                        });
+                        finishedPortsCount++;
+                    } else if (status === "unsupported") {
+                        row.innerHTML = `
+                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);">DDM parameters not supported on port.</td>
+                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
+                        `;
+                        collectedAllResults.push({
+                            router: sq.router.name,
+                            target: task.target,
+                            port: task.port,
+                            status: "unsupported"
+                        });
+                        finishedPortsCount++;
+                    } else if (status === "failed") {
+                        const errorMsg = extra;
+                        row.innerHTML = `
+                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Error: ${escapeHTML(errorMsg)}</td>
+                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Failed</span></td>
+                        `;
+                        collectedAllResults.push({
+                            router: sq.router.name,
+                            target: task.target,
+                            port: task.port,
+                            status: "failed",
+                            errorMsg: errorMsg
+                        });
+                        finishedPortsCount++;
+                    }
+
+                    if (diagProgress) {
+                        diagProgress.innerText = `Ports: ${finishedPortsCount} / ${totalPorts} complete`;
+                    }
+                });
+
+                appendTerminalLine(`SSH: Serial Scan - Completed scan for ${labelSingular} ${sq.router.name}.`, "#10b981");
+            } catch (routerErr) {
+                appendTerminalLine(`SSH: Serial Scan - Failed to connect to ${sq.router.name}: ${routerErr.message}`, "var(--danger)");
+                sq.ports.forEach(task => {
+                    const mapKey = `${sq.router.name}-${task.port}`;
+                    const row = portElementsMap[mapKey];
+                    if (row) {
+                        row.innerHTML = `
+                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
+                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Device connection failed: ${escapeHTML(routerErr.message)}</td>
+                            <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Unreachable</span></td>
+                        `;
+                        collectedAllResults.push({
+                            router: sq.router.name,
+                            target: task.target,
+                            port: task.port,
+                            status: "unreachable",
+                            errorMsg: routerErr.message
+                        });
+                        finishedPortsCount++;
+                    }
+                });
+
+                if (diagProgress) {
+                    diagProgress.innerText = `Ports: ${finishedPortsCount} / ${totalPorts} complete`;
+                }
+            }
+        }
+
+        if (consoleState.scanStopped) {
+            appendTerminalLine(`\n[Diagnostics: Sequential multi-${labelSingular} optical scan aborted by user.]`, "var(--danger)");
+        } else {
+            appendTerminalLine(`\n[Diagnostics: Sequential multi-${labelSingular} optical scan finished. Total ports: ${totalPorts}.]`, "#10b981");
+        }
+        if (collectedAllResults.length > 0) {
+            await saveOpticalScanToServer(collectedAllResults, !consoleState.scanStopped);
+        }
+
+        restoreScanButtons();
+    }
+
+    if (diagnoseAllBtn && !diagnoseAllBtn.dataset.listenerBound) {
+        diagnoseAllBtn.addEventListener("click", () => runBulkOpticalScan("Router"));
         diagnoseAllBtn.dataset.listenerBound = "true";
+    }
+
+    if (diagnoseAllOltsBtn && !diagnoseAllOltsBtn.dataset.listenerBound) {
+        diagnoseAllOltsBtn.addEventListener("click", () => runBulkOpticalScan("OLT"));
+        diagnoseAllOltsBtn.dataset.listenerBound = "true";
     }
 
     // --- Saved Optical Power Scan Persistence & Display ---

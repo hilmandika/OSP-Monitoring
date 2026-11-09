@@ -664,13 +664,18 @@ def save_optical_scan(req: OpticalScanSaveRequest):
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     existing_data = load_optical_scan()
-    if req.replace_all or not existing_data.get("results"):
+    if not existing_data.get("results"):
         merged_list = [item.dict() for item in req.results]
     else:
-        # Merge by router + port key so single-device scans update the master report
+        # Merge by router + port key so Router and OLT scans coexist in the master report.
+        # If replace_all is True (bulk scan of a device class), replace all old entries for
+        # the devices included in req.results while preserving other devices' entries.
+        scanned_devices = {item.router for item in req.results} if req.replace_all else set()
         merged_map = {}
         order_keys = []
         for item in existing_data.get("results", []):
+            if req.replace_all and item.get("router") in scanned_devices:
+                continue
             key = f"{item.get('router')}||{item.get('port')}"
             if key not in merged_map:
                 order_keys.append(key)
@@ -1150,6 +1155,58 @@ async def websocket_console_endpoint(websocket: WebSocket):
                                 "===============================================================================\r\n"
                             )
                         await websocket.send_json({"type": "output", "data": f"{output}{prompt} "})
+                    elif "optical-module-info" in cmd:
+                        # Simulated ZTE OLT uplink optical module info (C600/C620/C300/C320/C220)
+                        port_tokens = cmd_line.strip().split()
+                        port_id = port_tokens[-1] if port_tokens else "xgei-1/4/1"
+                        rx_val = -9.45
+                        try:
+                            digits = [int(s) for s in re.findall(r'\d+', port_id)]
+                            if digits:
+                                rx_val = -7.5 - (sum(digits) % 12) * 1.4
+                        except Exception:
+                            pass
+                        output = (
+                            f"Optical module information of {port_id}:\r\n"
+                            " Basic information:\r\n"
+                            "  Module-Type       : 10GBASE-LR        Fiber-Type     : Single-Mode\r\n"
+                            "  Wavelength        : 1310(nm)          Distance       : 10(km)\r\n"
+                            "  Vendor-Name       : ZTE               Part-Number    : RTXM228-401\r\n"
+                            " Diagnostic information:\r\n"
+                            f"  RxPower           : {rx_val:.2f}(dbm)         TxPower        : -1.85(dbm)\r\n"
+                            "  Bias-Current      : 32.40(mA)         Laser-Rate     : 103(100Mbps)\r\n"
+                            "  Temperature       : 36.50(C)          Supply-Vol     : 3.31(V)\r\n"
+                            " Alarm threshold:\r\n"
+                            "  RxPower-High-Alarm:  1.00(dbm)        RxPower-Low-Alarm: -18.00(dbm)\r\n"
+                            "  RxPower-High-Warn : -1.00(dbm)        RxPower-Low-Warn : -15.00(dbm)\r\n"
+                            "  TxPower-High-Alarm:  2.00(dbm)        TxPower-Low-Alarm:  -8.00(dbm)\r\n"
+                        )
+                        await websocket.send_json({"type": "output", "data": f"{output}{prompt} "})
+                    elif "display port ddm-info" in cmd:
+                        # Simulated Huawei SmartAX MA5600T/MA5680T GIU DDM output
+                        port_tokens = cmd_line.strip().split()
+                        port_id = port_tokens[-1] if port_tokens else "0"
+                        rx_val = -8.62
+                        try:
+                            digits = [int(s) for s in re.findall(r'\d+', port_id)]
+                            if digits:
+                                rx_val = -7.8 - (sum(digits) % 10) * 1.5
+                        except Exception:
+                            pass
+                        output = (
+                            "  Temperature(C)                        : 38.500000\r\n"
+                            "  Supply voltage(V)                     : 3.290000\r\n"
+                            "  TX bias current(mA)                   : 34.120000\r\n"
+                            "  TX power(dBm)                         : -1.920000\r\n"
+                            f"  RX power(dBm)                         : {rx_val:.6f}\r\n"
+                            "  RX power LowAlarmthreshold(dBm)       : -19.000000\r\n"
+                            "  RX power LowWarningthreshold(dBm)     : -16.000000\r\n"
+                            "  RX power HighWarningthreshold(dBm)    : -1.000000\r\n"
+                            "  RX power HighAlarmthreshold(dBm)      : 1.000000\r\n"
+                        )
+                        await websocket.send_json({"type": "output", "data": f"{output}{prompt} "})
+                    elif cmd in ["config", "enable", "quit", "return"] or cmd.startswith("interface giu") or cmd.startswith("terminal length") or cmd.startswith("screen-length"):
+                        await websocket.send_json({"type": "output", "data": f"\r\n{prompt} "})
                     elif "show pon power" in cmd or "pon power" in cmd:
                         output = (
                             "OLT RX PON Power Diagnostics:\r\n"
@@ -1203,10 +1260,15 @@ async def websocket_console_endpoint(websocket: WebSocket):
         # Check SSH Rules overrides
         device_brand = init_data.get("device_brand", "")
         device_model = init_data.get("device_model", "")
-        combined_info = f"{device_brand} {device_model}".lower()
+        device_type = init_data.get("device_type", "")
+        combined_info = f"{device_brand} {device_model} {device_type}".lower()
+        is_olt_device = (
+            device_type.lower() == "olt"
+            or any(k in combined_info for k in ["zte", "c220", "c300", "c320", "c600", "c620", "ma56", "ma58", "huawei"])
+        )
         
         ssh_rules = ACTIVE_CONFIG.get("ssh_rules", {})
-        ssh_cmd_template = "ssh {ip}"
+        ssh_cmd_template = None
         best_match_len = 0
         for pattern, template in ssh_rules.items():
             pattern_lower = pattern.lower()
@@ -1215,25 +1277,41 @@ async def websocket_console_endpoint(websocket: WebSocket):
                     ssh_cmd_template = template
                     best_match_len = len(pattern)
         
-        target_ssh_cmd = ssh_cmd_template.replace("{ip}", dev_ip)
+        if not ssh_cmd_template:
+            if is_olt_device and dev_user:
+                ssh_cmd_template = (
+                    "ssh -oKexAlgorithms=+diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 "
+                    "-oHostKeyAlgorithms=+ssh-rsa -oStrictHostKeyChecking=no {user}@{ip}"
+                )
+            elif dev_user and dev_user != "admin":
+                ssh_cmd_template = "ssh {user}@{ip}"
+            else:
+                ssh_cmd_template = "ssh {ip}"
+        
+        target_ssh_cmd = ssh_cmd_template.replace("{ip}", dev_ip).replace("{user}", dev_user or "admin")
         shell.send(f"{target_ssh_cmd}\n")
         
-        # Wait for password prompt
+        # Wait for username or password prompt
         password_prompted = False
+        username_sent = False
         buffer = ""
         start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 10:
+        while asyncio.get_event_loop().time() - start_time < 15:
             try:
                 if shell.recv_ready():
                     chunk = shell.recv(4096).decode('utf-8', errors='replace')
                     buffer += chunk
                     await websocket.send_json({"type": "output", "data": chunk})
-                    if "continue connecting" in chunk.lower() or "yes/no" in chunk.lower():
+                    chunk_lower = chunk.lower()
+                    if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
                         shell.send("yes\n")
-                    if "password:" in chunk.lower():
+                    if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
+                        shell.send(f"{dev_user or 'admin'}\n")
+                        username_sent = True
+                    if "password:" in chunk_lower:
                         password_prompted = True
                         break
-                    if "connection refused" in chunk.lower() or "connection timed out" in chunk.lower() or "host unreachable" in chunk.lower():
+                    if "connection refused" in chunk_lower or "connection timed out" in chunk_lower or "host unreachable" in chunk_lower or "no matching key exchange" in chunk_lower:
                         await websocket.send_json({"type": "error", "data": f"Connection error from jumpbox to device:\r\n{buffer}"})
                         shell.close()
                         jb_client.close()
@@ -1257,14 +1335,14 @@ async def websocket_console_endpoint(websocket: WebSocket):
         logged_in = False
         buffer = ""
         start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 10:
+        while asyncio.get_event_loop().time() - start_time < 12:
             try:
                 if shell.recv_ready():
                     chunk = shell.recv(4096).decode('utf-8', errors='replace')
                     buffer += chunk
                     await websocket.send_json({"type": "output", "data": chunk})
                     clean_chunk = chunk.strip()
-                    if clean_chunk and clean_chunk[-1] in ["#", ">", "$"]:
+                    if clean_chunk and clean_chunk[-1] in ["#", ">", "$", "]"]:
                         logged_in = True
                         break
             except Exception:
@@ -1278,7 +1356,7 @@ async def websocket_console_endpoint(websocket: WebSocket):
             await websocket.close()
             return
             
-        # Execute auto first command if found
+        # Execute auto first command if found, or default pagination disable for OLTs
         auto_cmd = None
         device_brand = init_data.get("device_brand", "")
         device_model = init_data.get("device_model", "")
@@ -1294,8 +1372,15 @@ async def websocket_console_endpoint(websocket: WebSocket):
         if auto_cmd:
             await websocket.send_json({"type": "status", "data": f"SSH: Automatically executing initial command: '{auto_cmd}'...\r\n"})
             shell.send(auto_cmd + "\n")
-            # Wait a moment for command execution to complete and show prompt
             await asyncio.sleep(0.3)
+        elif any(k in combined_info for k in ["ma56", "ma58", "huawei"]):
+            shell.send("enable\n")
+            await asyncio.sleep(0.25)
+            shell.send("screen-length 0 temporary\n\n")
+            await asyncio.sleep(0.25)
+        elif is_olt_device:
+            shell.send("terminal length 0\n")
+            await asyncio.sleep(0.25)
             
         # Success! Start bi-directional loop
         async def read_from_ssh():
@@ -1380,10 +1465,15 @@ def execute_console_command(req: CommandRequest):
             # Check SSH Rules overrides
             device_brand = req.device_brand or ""
             device_model = req.device_model or ""
-            combined_info = f"{device_brand} {device_model}".lower()
+            device_type = req.device_type or ""
+            combined_info = f"{device_brand} {device_model} {device_type}".lower()
+            is_olt_device = (
+                device_type.lower() == "olt"
+                or any(k in combined_info for k in ["zte", "c220", "c300", "c320", "c600", "c620", "ma56", "ma58", "huawei"])
+            )
             
             ssh_rules = ACTIVE_CONFIG.get("ssh_rules", {})
-            ssh_cmd_template = "ssh {ip}"
+            ssh_cmd_template = None
             best_match_len = 0
             for pattern, template in ssh_rules.items():
                 pattern_lower = pattern.lower()
@@ -1392,23 +1482,39 @@ def execute_console_command(req: CommandRequest):
                         ssh_cmd_template = template
                         best_match_len = len(pattern)
             
-            target_ssh_cmd = ssh_cmd_template.replace("{ip}", req.device_ip)
+            if not ssh_cmd_template:
+                if is_olt_device and req.device_username:
+                    ssh_cmd_template = (
+                        "ssh -oKexAlgorithms=+diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 "
+                        "-oHostKeyAlgorithms=+ssh-rsa -oStrictHostKeyChecking=no {user}@{ip}"
+                    )
+                elif req.device_username and req.device_username != "admin":
+                    ssh_cmd_template = "ssh {user}@{ip}"
+                else:
+                    ssh_cmd_template = "ssh {ip}"
+            
+            target_ssh_cmd = ssh_cmd_template.replace("{ip}", req.device_ip).replace("{user}", req.device_username or "admin")
             shell.send(f"{target_ssh_cmd}\n")
             
             # Wait for password prompt
             password_prompted = False
+            username_sent = False
             buffer = ""
             start_time = time.time()
-            while time.time() - start_time < 10:
+            while time.time() - start_time < 15:
                 if shell.recv_ready():
                     chunk = shell.recv(4096).decode('utf-8', errors='replace')
                     buffer += chunk
-                    if "continue connecting" in chunk.lower() or "yes/no" in chunk.lower():
+                    chunk_lower = chunk.lower()
+                    if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
                         shell.send("yes\n")
-                    if "password:" in chunk.lower():
+                    if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
+                        shell.send(f"{req.device_username or 'admin'}\n")
+                        username_sent = True
+                    if "password:" in chunk_lower:
                         password_prompted = True
                         break
-                    if "connection refused" in chunk.lower() or "connection timed out" in chunk.lower() or "host unreachable" in chunk.lower():
+                    if "connection refused" in chunk_lower or "connection timed out" in chunk_lower or "host unreachable" in chunk_lower:
                         jb_client.close()
                         return {
                             "status": "error",
