@@ -2711,26 +2711,38 @@ function buildCleanLinkTooltipHtml(conn, optInfo) {
     const cap = `${conn.bitrate || 10}G ${conn.type || "Interlink"}`;
     const statusDotColor = conn.status === "Active" ? "#10b981" : "#94a3b8";
 
-    let optRowHtml = "";
-    if (optInfo && optInfo.primaryOpt) {
-        const h = optInfo.primaryHealth;
-        const opt = optInfo.primaryOpt;
-        const limitText = (opt.status === "success" && opt.lowWarn !== undefined && opt.lowAlarm !== undefined)
-            ? `<div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">Threshold: Warn ${Number(opt.lowWarn).toFixed(1)} / Alarm ${Number(opt.lowAlarm).toFixed(1)} dBm</div>`
-            : "";
-        optRowHtml = `
-            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-                    <span style="color: var(--text-muted); font-size: 0.72rem;">Optical Rx (${escapeHTML(optInfo.primaryPort)}):</span>
-                    <strong style="color: ${h.color}; font-family: monospace; font-size: 0.78rem;">${escapeHTML(h.rxText)} (${escapeHTML(h.statusText)})</strong>
+    const renderTooltipOptLine = (label, devName, portName, opt, health) => {
+        if (!opt) {
+            return `
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.71rem;">
+                    <span style="color: var(--text-muted);">${escapeHTML(devName)} [${escapeHTML(portName)}]:</span>
+                    <span style="color: #64748b; font-family: monospace;">Not Scanned</span>
                 </div>
-                ${limitText}
+            `;
+        }
+        const limitStr = (opt.status === "success" && opt.lowWarn !== undefined && opt.lowAlarm !== undefined)
+            ? ` <span style="color: #64748b; font-size: 0.65rem;">(W:${Number(opt.lowWarn).toFixed(1)}/A:${Number(opt.lowAlarm).toFixed(1)})</span>`
+            : "";
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.72rem;">
+                <span style="color: var(--text-muted);">${escapeHTML(devName)} [${escapeHTML(portName)}]:</span>
+                <span style="font-family: monospace;"><strong style="color: ${health.color};">${escapeHTML(health.rxText)}</strong> <span style="color: ${health.color}; font-size: 0.68rem;">[${escapeHTML(health.statusText)}]</span>${limitStr}</span>
+            </div>
+        `;
+    };
+
+    let optRowHtml = "";
+    if (optInfo && (optInfo.sourceOpt || optInfo.targetOpt)) {
+        optRowHtml = `
+            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 3px;">
+                ${renderTooltipOptLine("Source", conn.source, srcPort, optInfo.sourceOpt, optInfo.sHealth)}
+                ${renderTooltipOptLine("Peer", conn.target, tgtPort, optInfo.targetOpt, optInfo.tHealth)}
             </div>
         `;
     }
 
     return `
-        <div style="display: flex; flex-direction: column; gap: 3px; min-width: 210px;">
+        <div style="display: flex; flex-direction: column; gap: 3px; min-width: 240px;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                 <span style="font-weight: 700; color: #f8fafc; font-size: 0.8rem;">${escapeHTML(conn.source)} ↔ ${escapeHTML(conn.target)}</span>
                 <span style="font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 600;">${escapeHTML(cap)}</span>
@@ -2745,7 +2757,14 @@ function buildCleanLinkTooltipHtml(conn, optInfo) {
 }
 
 function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
-    if (!optItem) return "";
+    if (!optItem) {
+        return `
+            <div style="margin-top: 6px; padding: 7px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: var(--text-muted); font-family: monospace;">${escapeHTML(roleLabel)}: ${escapeHTML(deviceName)} [${escapeHTML(portName || '-')}]</span>
+                <span class="badge" style="font-size: 0.62rem; padding: 2px 6px; background: rgba(255,255,255,0.05); color: var(--text-muted);">Not Scanned</span>
+            </div>
+        `;
+    }
     const health = evaluatePortOpticalHealth(optItem);
     const isAlarm = health.severity === "alarm";
     const isWarn = health.severity === "warning";
@@ -2757,7 +2776,7 @@ function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
     if (optItem.status !== "success") {
         return `
             <div style="margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); font-size: 0.74rem; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                <span style="font-weight: 600; color: var(--text-main); font-family: monospace;">${escapeHTML(deviceName)} [${escapeHTML(portName)}]</span>
+                <span style="font-weight: 600; color: var(--text-main); font-family: monospace;">${escapeHTML(roleLabel)}: ${escapeHTML(deviceName)} [${escapeHTML(portName || '-')}]</span>
                 <span class="badge" style="font-size: 0.64rem; padding: 2px 6px; background: rgba(255,255,255,0.06); color: var(--text-muted);">${escapeHTML(health.statusText)}</span>
             </div>
         `;
@@ -2769,8 +2788,8 @@ function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
     return `
         <div style="margin-top: 6px; padding: 9px 11px; border-radius: 6px; background: ${bgCol}; border: 1px solid ${borderCol}; display: flex; flex-direction: column; gap: 5px;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
-                    ${escapeHTML(deviceName)} [${escapeHTML(portName)}]
+                <span style="font-size: 0.73rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
+                    <span style="color: var(--text-muted); font-weight: 500;">${escapeHTML(roleLabel)}:</span> ${escapeHTML(deviceName)} [${escapeHTML(portName || '-')}]
                 </span>
                 <span class="badge" style="font-size: 0.64rem; padding: 2px 7px; background: ${badgeBg}; color: ${health.color}; border: 1px solid ${borderCol}; font-weight: 700; white-space: nowrap;">
                     ${escapeHTML(health.statusText)}
