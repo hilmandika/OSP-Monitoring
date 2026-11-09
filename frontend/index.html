@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Premium interactive OTDR .sor dashboard. Visualize and summarize fiber optic measurements, splice losses, attenuation and reflection events.">
+    <title>OTDR Analytics & Summary Dashboard</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Plotly.js CDN for Scientific Interactive Telemetry Plots -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js" charset="utf-8"></script>
+    <!-- Local Premium Stylesheets -->
+    <!-- Leaflet.js Map Stylesheet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+        <div class="header-logo">
+            <div class="logo-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div class="logo-text">
+                <h1>Data Core & Measurements</h1>
+                <span class="logo-subtitle">Network Measurement & Topology Dashboard</span>
+            </div>
+        </div>
+
+        <!-- View switcher navigation -->
+        <nav class="app-nav">
+            <button id="nav-otdr-btn" class="nav-tab active">
+                <i class="fa-solid fa-chart-line"></i> <span>OTDR Analytics</span>
+            </button>
+            <button id="nav-nms-btn" class="nav-tab">
+                <i class="fa-solid fa-circle-nodes"></i> <span>Network Topology</span>
+            </button>
+            <button id="nav-console-btn" class="nav-tab">
+                <i class="fa-solid fa-terminal"></i> <span>Console</span>
+            </button>
+        </nav>
+        
+        <!-- NMS Header Controls (visible only when Topology view is active) -->
+        <div id="nms-header-controls" class="hidden" style="display: flex; align-items: center; gap: 15px; margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 20px; height: 32px; z-index: 10;">
+             <span id="nms-status-summary" class="nms-badge-summary" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">0 Devices | 0 Links</span>
+             <div class="nms-layout-switcher" style="display: flex; gap: 4px; background: rgba(0,0,0,0.25); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+                 <button id="layout-logical-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                     <i class="fa-solid fa-diagram-project"></i> <span>Logical</span>
+                 </button>
+                 <button id="layout-geo-btn" class="btn btn-secondary btn-sm active" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                     <i class="fa-solid fa-earth-asia"></i> <span>Geographic Map</span>
+                 </button>
+                 <button id="layout-summary-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                     <i class="fa-solid fa-chart-pie"></i> <span>Summary</span>
+                 </button>
+             </div>
+        </div>
+        
+        <!-- Path scanner input bar -->
+        <div class="scanner-bar" id="otdr-scanner-bar">
+            <div class="input-wrapper">
+                <i class="fa-regular fa-folder-open folder-icon"></i>
+                <input type="text" id="scan-path-input" placeholder="Paste absolute Mac folder path (e.g. /Users/name/OneDrive/OTDR)..." />
+            </div>
+            <button id="scan-btn" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> <span>Scan Directory</span>
+            </button>
+        </div>
+
+        <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+            <span id="static-mode-badge" class="hidden" style="font-size: 0.72rem; padding: 5px 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; border-radius: 6px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+                <i class="fa-solid fa-shield-halved"></i> <span id="static-mode-text">GitHub Pages Mode</span>
+            </span>
+            <button id="static-logout-btn" class="btn btn-secondary hidden" style="padding: 6px 10px; font-size: 0.75rem; display: flex; align-items: center; gap: 5px; white-space: nowrap;" title="Lock & Sign Out">
+                <i class="fa-solid fa-right-from-bracket"></i> <span>Sign Out</span>
+            </button>
+            <button id="pages-auth-btn" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; white-space: nowrap;" title="Manage authorized users who can view the GitHub Pages dashboard">
+                <i class="fa-solid fa-user-shield"></i> <span>Pages Access</span>
+            </button>
+            <button id="publish-github-btn" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.8rem; display: flex; align-items: center; gap: 7px; background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25); white-space: nowrap;" title="Export AES-256 encrypted OTDR, Topology & Optical Power data and push to GitHub Pages">
+                <i class="fa-brands fa-github"></i> <span>Publish to GitHub</span>
+            </button>
+            <button id="theme-toggle-btn" class="btn btn-secondary btn-icon-only" title="Toggle Light/Dark Theme">
+                <i class="fa-solid fa-sun"></i>
+            </button>
+            <button id="settings-toggle-btn" class="btn btn-secondary btn-icon-only" title="Threshold Quality Settings">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <main class="app-viewport">
+
+        <!-- 1. Folder summary loading indicator -->
+        <div id="global-loader" class="loader-overlay hidden">
+            <div class="loader-spinner"></div>
+            <p>Scanning directory & parsing .sor files...</p>
+        </div>
+
+        <!-- 2. Folder summary grid (Home view) -->
+        <section id="folder-grid-view" class="view-panel">
+            <div class="view-header-row">
+                <div class="view-header">
+                    <h2><i class="fa-solid fa-network-wired"></i> Monitored Cable Links</h2>
+                    <p class="view-desc">Select a measurement folder below to drill down into individual fiber traces and splice summaries.</p>
+                </div>
+                <div class="home-toolbar">
+                    <label for="month-year-filter" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; margin: 0;">
+                        <i class="fa-regular fa-calendar-days" style="color: var(--primary);"></i> Month & Year:
+                    </label>
+                    <select id="month-year-filter" class="home-filter-select">
+                        <option value="all">All Months</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="folders-grid" class="cards-grid">
+                <!-- Dynamically loaded folder cards go here -->
+                <div class="empty-state">
+                    <i class="fa-solid fa-folder-tree empty-icon"></i>
+                    <h3>No directories scanned yet</h3>
+                    <p>Enter an absolute folder path in the header bar above and click "Scan Directory" to begin.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Folder drill-down view (Fibers list + overlays) -->
+        <section id="folder-detail-view" class="view-panel hidden">
+            <!-- Breadcrumbs / Back navigation -->
+            <div class="detail-header-bar">
+                <button id="back-to-grid-btn" class="btn btn-back">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Monitored Links
+                </button>
+                <div class="folder-title-area">
+                    <h2 id="current-folder-title">Jakarta-Bogor-Link-A</h2>
+                    <span id="current-folder-path" class="folder-path-subtitle">/Users/.../Jakarta-Bogor-Link-A</span>
+                </div>
+            </div>
+
+            <!-- Folder mini statistics ribbon -->
+            <div id="folder-stats-ribbon" class="stats-ribbon">
+                <div class="stat-card">
+                    <span class="stat-label">Total Fibers</span>
+                    <span class="stat-value" id="stat-total-fibers">0</span>
+                </div>
+                <div class="stat-card stat-pass">
+                    <span class="stat-label">Passed</span>
+                    <span class="stat-value" id="stat-passed-fibers">0</span>
+                </div>
+                <div class="stat-card stat-fail">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value" id="stat-failed-fibers">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Avg. Attenuation</span>
+                    <span class="stat-value" id="stat-avg-attenuation">0.000 dB/km</span>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="tabs-container">
+                <div class="tab-headers">
+                    <button class="tab-btn active" data-tab="tab-fibers-list">
+                        <i class="fa-solid fa-list-check"></i> Fiber Audit Table
+                    </button>
+                    <button class="tab-btn" data-tab="tab-trace-overlay" id="tab-overlay-btn">
+                        <i class="fa-solid fa-layer-group"></i> Multi-Trace Overlay (<span id="overlay-count">0</span>)
+                    </button>
+                </div>
+
+                <div class="tab-content-panels">
+                    
+                    <!-- Tab A: Fibers List Table -->
+                    <div id="tab-fibers-list" class="tab-panel active">
+                        <!-- Table Filters & Search -->
+                        <div class="table-toolbar">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="fiber-search-input" placeholder="Search by Fiber ID or Cable ID..." />
+                            </div>
+                            <div class="filter-controls">
+                                <select id="filter-status">
+                                    <option value="all">All Statuses</option>
+                                    <option value="Pass">Pass Only</option>
+                                    <option value="Fail">Fail Only</option>
+                                </select>
+                                <select id="filter-wavelength">
+                                    <option value="all">All Wavelengths</option>
+                                    <option value="1310">1310 nm</option>
+                                    <option value="1550">1550 nm</option>
+                                </select>
+                                <button id="csv-export-btn" class="btn btn-secondary">
+                                    <i class="fa-solid fa-file-excel"></i> Export Excel/CSV
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Data Grid -->
+                        <div class="table-responsive">
+                            <table class="data-table" id="fibers-data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-checkbox">
+                                            <input type="checkbox" id="select-all-fibers" title="Select all for Overlay" />
+                                        </th>
+                                        <th data-sort="fiber_id" class="sortable">Fiber ID <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="wavelength" class="sortable">Wavelength <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="length" class="sortable">Length (km) <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="loss" class="sortable">Total Loss (dB) <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="attenuation" class="sortable">Attenuation <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="max_splice" class="sortable">Max Splice <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="max_connector" class="sortable">Max Conn. <i class="fa-solid fa-sort"></i></th>
+                                        <th data-sort="status" class="sortable">Status <i class="fa-solid fa-sort"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fibers-table-body">
+                                    <!-- Dynamic rows go here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab B: Multi-Trace Overlay Plot -->
+                    <div id="tab-trace-overlay" class="tab-panel">
+                        <div class="overlay-layout">
+                            <div class="overlay-chart-container">
+                                <div id="overlay-plotly-chart" class="plotly-chart"></div>
+                            </div>
+                            <div class="overlay-sidebar">
+                                <h3><i class="fa-solid fa-code-merge"></i> Shared Events</h3>
+                                <p class="sidebar-tip">Events detected at relatively same distances across multiple cores (±50m tolerance).</p>
+                                
+                                <!-- Minimum Loss Filter Control -->
+                                <div style="margin-top: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="align-min-loss" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">Min. Event Loss (dB)</label>
+                                    <div style="display: flex; align-items: center; position: relative;">
+                                        <input type="number" id="align-min-loss" step="0.01" min="0.00" max="5.00" value="1.00" style="width: 100%; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); color: var(--text-main); padding: 6px 36px 6px 10px; font-size: 0.78rem; font-weight: 600; outline: none; transition: var(--transition-fast);" />
+                                        <span style="position: absolute; right: 10px; font-size: 0.68rem; color: var(--text-dim); font-weight: 600; pointer-events: none;">dB</span>
+                                    </div>
+                                </div>
+
+                                <!-- Lock Y-Axis Zoom Control -->
+                                <div style="margin-top: 4px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.3); border: 1px solid var(--border-color); padding: 8px; border-radius: var(--border-radius-sm);">
+                                    <input type="checkbox" id="lock-y-axis-overlay" checked style="cursor: pointer; width: 14px; height: 14px;" />
+                                    <label for="lock-y-axis-overlay" style="font-size: 0.74rem; color: var(--text-main); font-weight: 600; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; margin: 0;">
+                                        <i class="fa-solid fa-lock" style="font-size: 0.68rem; color: var(--text-muted);"></i> Lock Y-Axis (Power)
+                                    </label>
+                                </div>
+
+                                <ul id="shared-events-list" class="overlay-list">
+                                    <!-- Dynamic list of shared events -->
+                                </ul>
+                            </div>
+                        </div>
+
+
+                        <!-- Shared Event Alignment Details Table -->
+                        <div id="overlay-alignments-section" class="modal-card" style="margin-top: 20px; overflow: visible;">
+                            <h4 style="color: var(--text-main);"><i class="fa-solid fa-code-branch"></i> Shared Event Alignment Details</h4>
+                            <p class="sidebar-tip" style="margin-bottom: 12px; font-size: 0.78rem;">The table below details every detected alignment, listing each participating core and its measured loss at that event location.</p>
+                            <div class="table-responsive">
+                                <table class="data-table" id="alignments-data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Alignment</th>
+                                            <th>Average Distance (km)</th>
+                                            <th>Event Type</th>
+                                            <th>Total Cores</th>
+                                            <th>Participating Cores & Individual Losses</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="alignments-table-body">
+                                        <tr><td colspan="5" style="text-align: center; color: var(--text-dim)">No overlay fibers selected.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. NMS Network Topology View -->
+        <section id="nms-topology-view" class="view-panel hidden">
+            <div class="nms-main-layout sidebar-collapsed">
+                <div class="nms-top-row">
+                    <!-- SVG Canvas Container -->
+                    <div class="nms-canvas-container">
+                        <svg id="nms-svg" class="nms-svg-canvas">
+                            <!-- Definitions for markers and filters -->
+                            <defs>
+                                <!-- Subtle grid pattern -->
+                                <pattern id="nms-grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                                </pattern>
+                                <!-- Glow filter for online nodes -->
+                                <filter id="glow-online" x="-30%" y="-30%" width="160%" height="160%">
+                                    <feGaussianBlur stdDeviation="4" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+                            <!-- Grid pattern for background -->
+                            <rect width="100%" height="100%" fill="url(#nms-grid-pattern)" class="canvas-bg" />
+                            <g id="nms-zoom-group">
+                                <g id="nms-links-group"></g>
+                                <g id="nms-nodes-group"></g>
+                            </g>
+                        </svg>
+                        <!-- Leaflet Map Container -->
+                        <div id="nms-map-container" class="hidden" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></div>
+                        
+                        <!-- Summary Dashboard Container -->
+                        <div id="nms-summary-container" class="hidden nms-summary-view" style="width: 100%; height: 100%; overflow-y: auto; padding: 30px; box-sizing: border-box; background: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; position: absolute; top: 0; left: 0; z-index: 2;">
+                            <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
+                                <!-- Summary Header -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                                    <div>
+                                        <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Network Topology Dashboard</h3>
+                                        <p style="margin: 5px 0 0 0; font-size: 0.76rem; color: var(--text-muted);">Real-time equipment distribution, connectivity status, and capacity statistics</p>
+                                    </div>
+                                    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary-glow); padding: 6px 12px; border-radius: 20px; font-size: 0.72rem; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                        <span style="display: inline-block; width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: pulse-green 1.5s infinite;"></span>
+                                        <span>Active Network Monitoring</span>
+                                    </div>
+                                </div>
+
+                                <!-- 3-Column Key Stats Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                                    <!-- Device Card -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Equipment Distribution</span>
+                                            <i class="fa-solid fa-server" style="color: var(--primary); font-size: 1.1rem;"></i>
+                                        </div>
+                                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                                            <span id="dash-total-devices" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif;">0</span>
+                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Total Devices</span>
+                                        </div>
+                                        <!-- Mini progress bars -->
+                                        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
+                                                    <span>Routers</span>
+                                                    <span id="dash-router-count">0</span>
+                                                </div>
+                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                                    <div id="dash-router-progress" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.8s ease;"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
+                                                    <span>OLT Cabinets</span>
+                                                    <span id="dash-olt-count">0</span>
+                                                </div>
+                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                                    <div id="dash-olt-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 60%); transition: width 0.8s ease;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Connection/Links Card -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Connectivity Status</span>
+                                            <i class="fa-solid fa-link" style="color: hsl(280, 80%, 65%); font-size: 1.1rem;"></i>
+                                        </div>
+                                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                                            <span id="dash-total-links" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif;">0</span>
+                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Active Links</span>
+                                        </div>
+                                        <!-- Link Breakdown -->
+                                        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
+                                                    <span>Interlink (Router-Router)</span>
+                                                    <span id="dash-interlink-count">0</span>
+                                                </div>
+                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                                    <div id="dash-interlink-progress" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.8s ease;"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
+                                                    <span>Uplink (Router-OLT or OLT-OLT)</span>
+                                                    <span id="dash-uplink-count">0</span>
+                                                </div>
+                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                                                    <div id="dash-uplink-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 65%); transition: width 0.8s ease;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Health Index Card -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Network Health</span>
+                                            <i class="fa-solid fa-heart-pulse" style="color: var(--success); font-size: 1.1rem;"></i>
+                                        </div>
+                                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                                            <span id="dash-health-index" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);">100%</span>
+                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Health Index</span>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; font-size: 0.72rem;">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Devices Online:</span>
+                                                <span id="dash-online-status" style="font-weight: 600; color: var(--success);">0 / 0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Devices Maintenance:</span>
+                                                <span id="dash-maint-status" style="font-weight: 600; color: var(--warning);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Devices Offline:</span>
+                                                <span id="dash-offline-status" style="font-weight: 600; color: var(--danger);">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2-Column Stats Breakdown Panels -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                                    <!-- Brand & Model Distribution -->
+                                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
+                                        <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Equipment Brand Distribution</h4>
+                                        <div id="dash-brand-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 5px; max-height: 220px; overflow-y: auto; padding-right: 5px;">
+                                            <!-- Brand list rows generated dynamically -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Capacity Distribution -->
+                                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
+                                        <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Connection Capacity Allocation</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: center; padding: 8px 12px; background: rgba(59, 130, 246, 0.03); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.05); font-size: 0.76rem;">
+                                            <div>
+                                                <span>Total Interlink Cap:</span>
+                                                <strong id="dash-interlink-bandwidth" style="color: var(--primary); font-family: 'Outfit', sans-serif; margin-left: 5px;">0 Gbps</strong>
+                                            </div>
+                                            <div>
+                                                <span>Total Uplink Cap:</span>
+                                                <strong id="dash-uplink-bandwidth" style="color: hsl(280, 80%, 65%); font-family: 'Outfit', sans-serif; margin-left: 5px;">0 Gbps</strong>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px;">
+                                            <!-- Interlink Capacity List -->
+                                            <div>
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.02em;">Interlink Capacities</div>
+                                                <div id="dash-interlink-capacity-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto; padding-right: 5px;">
+                                                    <!-- Generated dynamically -->
+                                                </div>
+                                            </div>
+                                            <!-- Uplink Capacity List -->
+                                            <div>
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.02em;">Uplink Capacities</div>
+                                                <div id="dash-uplink-capacity-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto; padding-right: 5px;">
+                                                    <!-- Generated dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Detailed Equipment Sections (Router & OLT) -->
+                                <div style="display: flex; flex-direction: column; gap: 20px;">
+                                    <!-- Router Details Section -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 15px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                            <i class="fa-solid fa-server" style="color: var(--primary); font-size: 1.1rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Router Summary Data</h4>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Total Routers</div>
+                                                <div id="dash-router-total" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Core Routers</div>
+                                                <div id="dash-router-core" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.78rem; background: rgba(255,255,255,0.01); padding: 12px 18px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02);">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Aggregation Routers:</span>
+                                                <span id="dash-router-agg" style="font-weight: 600; color: var(--text-main);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Online Routers:</span>
+                                                <span id="dash-router-online" style="font-weight: 600; color: var(--success);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Maintenance Routers:</span>
+                                                <span id="dash-router-maint" style="font-weight: 600; color: var(--warning);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Offline Routers:</span>
+                                                <span id="dash-router-offline" style="font-weight: 600; color: var(--danger);">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Router SPOF vs Resilient Graph Section -->
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">
+                                                Router Resiliency Analysis (SPOF vs. Resilient Redundant)
+                                            </div>
+                                            <div style="height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; display: flex; width: 100%;">
+                                                <div id="dash-router-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient Routers (No SPOF)"></div>
+                                                <div id="dash-router-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF Routers (At Risk)"></div>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-top: 2px;">
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></span>
+                                                    <span>Resilient (No SPOF): <strong id="dash-router-resilient-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger);"></span>
+                                                    <span>SPOF Risk: <strong id="dash-router-spof-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Router SPOF List and Filters Section -->
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 10px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
+                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.9rem;"></i>
+                                                    <span>SPOF Risk Routers (Single Non-Dual-Track Link - Click to select)</span>
+                                                </div>
+                                                <div style="display: flex; gap: 8px; align-items: center;">
+                                                    <input type="text" id="dash-router-spof-name-filter" placeholder="Filter by Router name..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; height: 24px; width: 150px;" />
+                                                    <select id="dash-router-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; cursor: pointer; height: 24px; min-width: 110px;">
+                                                        <option value="all">All Brands</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div id="dash-router-spof-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 5px;">
+                                                <!-- Dynamic list of Routers with SPOF will render here -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- OLT Details Section -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 15px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                            <i class="fa-solid fa-box" style="color: hsl(280, 80%, 60%); font-size: 1.1rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">OLT Summary Data</h4>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Total OLTs</div>
+                                                <div id="dash-olt-total" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Uplinks Connected</div>
+                                                <div id="dash-olt-uplinks" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.78rem; background: rgba(255,255,255,0.01); padding: 12px 18px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02);">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Online OLT Cabinets:</span>
+                                                <span id="dash-olt-online" style="font-weight: 600; color: var(--success);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Maintenance OLT Cabinets:</span>
+                                                <span id="dash-olt-maint" style="font-weight: 600; color: var(--warning);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Offline OLT Cabinets:</span>
+                                                <span id="dash-olt-offline" style="font-weight: 600; color: var(--danger);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Aggregated Uplink Capacity:</span>
+                                                <span id="dash-olt-capacity" style="font-weight: 600; color: var(--primary);">0 Gbps</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- OLT SPOF vs Resilient Graph Section -->
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">
+                                                OLT Resiliency Analysis (SPOF vs. Resilient Redundant)
+                                            </div>
+                                            <div style="height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; display: flex; width: 100%;">
+                                                <div id="dash-olt-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient OLTs (No SPOF)"></div>
+                                                <div id="dash-olt-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF OLTs (At Risk)"></div>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-top: 2px;">
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></span>
+                                                    <span>Resilient (No SPOF): <strong id="dash-olt-resilient-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger);"></span>
+                                                    <span>SPOF Risk: <strong id="dash-olt-spof-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 10px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
+                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.9rem;"></i>
+                                                    <span>SPOF Risk OLTs (Single Non-Dual-Track Link - Click to select)</span>
+                                                </div>
+                                                <div style="display: flex; gap: 8px; align-items: center;">
+                                                    <input type="text" id="dash-olt-spof-name-filter" placeholder="Filter by OLT name..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; height: 24px; width: 150px;" />
+                                                    <select id="dash-olt-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; cursor: pointer; height: 24px; min-width: 110px;">
+                                                        <option value="all">All Brands</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div id="dash-olt-spof-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 5px;">
+                                                <!-- Dynamic list of OLTs with SPOF will render here -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Floating Controls Overlay -->
+                        <div id="nms-floating-controls" class="nms-floating-controls collapsed">
+                            <button id="nms-controls-toggle" class="nms-controls-toggle-btn" title="Toggle Controls">
+                                <i class="fa-solid fa-gear"></i>
+                                <span style="flex: 1; text-align: left; font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600;">Controls</span>
+                                <i class="fa-solid fa-chevron-down controls-chevron" style="font-size: 0.7rem; transition: transform var(--transition-normal);"></i>
+                            </button>
+                            <div id="nms-controls-content" class="nms-controls-content">
+                                <!-- Zoom & View Actions -->
+                                <div class="controls-section">
+                                    <h4>Zoom & View Control</h4>
+                                    <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                                        <button id="nms-zoom-in-btn" class="btn btn-secondary btn-sm" title="Zoom In" style="flex: 1; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; cursor: pointer;">
+                                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                        </button>
+                                        <button id="nms-zoom-out-btn" class="btn btn-secondary btn-sm" title="Zoom Out" style="flex: 1; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; cursor: pointer;">
+                                            <i class="fa-solid fa-magnifying-glass-minus"></i>
+                                        </button>
+                                        <button id="nms-reset-zoom-btn" class="btn btn-secondary btn-sm" title="Reset Zoom" style="flex: 1; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; cursor: pointer;">
+                                            <i class="fa-solid fa-arrows-to-eye"></i>
+                                        </button>
+                                    </div>
+                                    <button id="nms-fullscreen-btn" class="btn btn-secondary btn-sm" title="Toggle Fullscreen" style="width: 100%; height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; cursor: pointer; font-size: 0.72rem;">
+                                        <i class="fa-solid fa-expand"></i> <span>Fullscreen</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Layout Algorithm Selection (visible only in Logical View) -->
+                                <div id="nms-arrange-group" class="controls-section" style="margin-top: 10px;">
+                                    <h4>Topology Layout</h4>
+                                    <select id="nms-arrange-algorithm" title="Select Layout Algorithm" style="width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; padding: 4px 8px; font-size: 0.72rem; height: 28px; cursor: pointer; margin-bottom: 6px;">
+                                        <option value="radial" selected>Radial Ring Layout</option>
+                                        <option value="tree">Hierarchical Tree</option>
+                                        <option value="force">Force-Directed</option>
+                                    </select>
+                                    <button id="nms-arrange-btn" class="btn btn-secondary btn-sm" title="Auto-Arrange Layout" style="width: 100%; height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; cursor: pointer; font-size: 0.72rem;">
+                                        <i class="fa-solid fa-shuffle"></i> <span>Arrange</span>
+                                    </button>
+                                </div>
+
+                                <!-- Layer Visibility Checkboxes -->
+                                <div class="controls-section" style="margin-top: 10px;">
+                                    <h4>Show Layers</h4>
+                                    <label class="control-checkbox-label">
+                                        <input type="checkbox" id="nms-show-routers" checked style="accent-color: var(--primary); cursor: pointer;" />
+                                        <span style="font-family: 'Inter', sans-serif;">Routers</span>
+                                    </label>
+                                    <label class="control-checkbox-label" style="margin-top: 6px;">
+                                        <input type="checkbox" id="nms-show-olts" checked style="accent-color: hsl(280, 80%, 60%); cursor: pointer;" />
+                                        <span style="font-family: 'Inter', sans-serif;">OLTs</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Floating Legend Overlay -->
+                        <div id="nms-legend" class="nms-legend-container collapsed">
+                            <button id="nms-legend-toggle" class="nms-legend-toggle-btn" title="Toggle Legend">
+                                <i class="fa-solid fa-list-ul"></i>
+                                <span style="flex: 1;">Legend</span>
+                                <i class="fa-solid fa-chevron-down legend-chevron" style="font-size: 0.7rem; transition: transform var(--transition-normal);"></i>
+                            </button>
+                            <div id="nms-legend-content" class="nms-legend-content">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <div class="legend-section">
+                                        <h4>Devices</h4>
+                                        <div class="legend-item">
+                                            <span class="legend-symbol symbol-router"><i class="fa-solid fa-server"></i></span>
+                                            <span>Router</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-symbol symbol-olt"><i class="fa-solid fa-sitemap"></i></span>
+                                            <span>OLT</span>
+                                        </div>
+                                    </div>
+                                    <div class="legend-section">
+                                        <h4>Status</h4>
+                                        <div class="legend-item">
+                                            <span class="legend-status status-online"></span>
+                                            <span>Online</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-status status-maintenance"></span>
+                                            <span>Maint.</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-status status-offline"></span>
+                                            <span>Offline</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 15px; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px; margin-top: 5px;">
+                                    <div class="legend-section">
+                                        <h4>Capacity</h4>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-100G"></span>
+                                            <span>100G (Blue)</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-40G"></span>
+                                            <span>40G (Cyan)</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-10G"></span>
+                                            <span>10G (Green)</span>
+                                        </div>
+                                    </div>
+                                    <div class="legend-section">
+                                        <h4>Attributes</h4>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-dual-track"></span>
+                                            <span>Dual-Track</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-backup"></span>
+                                            <span>Backup</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-aggregated"></span>
+                                            <span>Aggregated</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar collapse handle -->
+                        <button id="nms-sidebar-toggle-btn" class="nms-sidebar-toggle-btn" title="Toggle Spreadsheet Sidebar">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <!-- Dedicated Detail Sidebar -->
+                    <div id="nms-detail-sidebar" class="nms-detail-sidebar">
+                        <div id="nms-detail-placeholder" class="nms-detail-placeholder">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <p>Select a network node or connection on the map to view specifications</p>
+                        </div>
+                        <div id="nms-detail-content" class="nms-detail-content hidden">
+                            <button id="nms-detail-close-btn" class="nms-detail-close" title="Close Details"><i class="fa-solid fa-xmark"></i></button>
+                            <div class="detail-header">
+                                <div class="detail-icon" id="nms-detail-icon"><i class="fa-solid fa-server"></i></div>
+                                <div style="min-width: 0; flex: 1;">
+                                    <h3 id="nms-detail-name" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; margin: 0; font-size: 1.1rem; line-height: 1.2;">Equipment</h3>
+                                    <span id="nms-detail-type" class="badge" style="margin-top: 4px; display: inline-block;">Type</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Device Section -->
+                            <div id="nms-detail-device-section">
+                                <div class="detail-body">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Brand & Model:</span>
+                                        <span class="detail-val" id="nms-detail-model">Model</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">IP Address:</span>
+                                        <span class="detail-val" id="nms-detail-ip" style="word-wrap: break-word; overflow-wrap: break-word;">IP</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Status:</span>
+                                        <span class="detail-val" id="nms-detail-status">Status</span>
+                                    </div>
+                                    <div class="detail-connections">
+                                        <h4>Connected Interfaces:</h4>
+                                        <ul id="nms-detail-conns-list" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; padding-left: 15px; margin: 0;">
+                                            <!-- Dynamic connections list -->
+                                        </ul>
+                                    </div>
+                                    <!-- Co-located section -->
+                                    <div id="nms-detail-colocated-container"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Connection Section -->
+                            <div id="nms-detail-connection-section" class="hidden">
+                                <div id="nms-detail-connections-list-container" class="detail-body" style="padding: 0;">
+                                    <!-- Dynamic list of connection cards will render here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spreadsheet Editor Container -->
+                <div class="nms-editor-container">
+                    <div class="editor-tabs">
+                        <button id="tab-devices-btn" class="editor-tab active" data-tab="devices">
+                            <i class="fa-solid fa-server"></i> Devices
+                        </button>
+                        <button id="tab-connections-btn" class="editor-tab" data-tab="connections">
+                            <i class="fa-solid fa-link"></i> Connections
+                        </button>
+                        
+                        <!-- Lock/Unlock Edit Mode Toggle Button -->
+                        <button id="nms-toggle-lock-btn" class="nms-lock-btn" title="Toggle Read-only / Edit mode">
+                            <i class="fa-solid fa-lock"></i> <span>Locked (View Mode)</span>
+                        </button>
+                        
+                        <!-- Unhide All Button -->
+                        <button id="nms-unhide-all-btn" class="nms-unhide-btn" title="Unhide all hidden devices and connections">
+                            <i class="fa-regular fa-eye"></i> <span>Unhide All</span>
+                        </button>
+                        
+                        
+                        <!-- Search container on the right side of the tab bar -->
+                        <div class="editor-search-container" style="display: flex; align-items: center; padding: 0 15px; margin-left: auto; border-left: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02);">
+                            <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted); margin-right: 8px; font-size: 0.8rem;"></i>
+                            <input type="text" id="nms-search-input" placeholder="Search devices or connections..." style="background: transparent; border: none; color: var(--text-main); font-size: 0.8rem; outline: none; width: 220px;" />
+                        </div>
+                    </div>
+
+                    <div class="editor-viewport">
+                        <!-- Devices Tab -->
+                        <div id="editor-devices-panel" class="editor-panel active">
+                            <div class="spreadsheet-wrapper">
+                                <table id="devices-sheet" class="spreadsheet-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Device Name</th>
+                                            <th>Type</th>
+                                            <th>Brand & Model</th>
+                                            <th>IP Address</th>
+                                            <th>Status</th>
+                                            <th>Latitude</th>
+                                            <th>Longitude</th>
+                                            <th style="text-align: center; width: 100px;">Outside Party</th>
+                                            <th class="col-actions"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devices-sheet-body">
+                                        <!-- Dynamically generated rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Connections Tab -->
+                        <div id="editor-connections-panel" class="editor-panel">
+                            <div class="spreadsheet-wrapper">
+                                <table id="connections-sheet" class="spreadsheet-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Source Device</th>
+                                            <th>Src Port</th>
+                                            <th>Src LAG</th>
+                                            <th>Target Device</th>
+                                            <th>Tgt Port</th>
+                                            <th>Tgt LAG</th>
+                                            <th>Capacity (G)</th>
+                                            <th>Physical Link</th>
+                                            <th>Link Type</th>
+                                            <th>Status</th>
+                                            <th>Dual-Track Port</th>
+                                            <th>Multipath LAG</th>
+                                            <th class="col-actions"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="connections-sheet-body">
+                                        <!-- Dynamically generated rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-footer" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: var(--bg-card); border-top: 1px solid var(--border-color); gap: 15px;">
+                        <!-- Tab-specific buttons (left-aligned) -->
+                        <div class="editor-footer-left" style="display: flex; gap: 8px;">
+                            <!-- Devices buttons -->
+                            <div id="footer-actions-devices" style="display: flex; gap: 8px;">
+                                <button id="add-device-row-btn" class="btn btn-secondary btn-sm" style="height: 32px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-plus"></i> Add Device Row
+                                </button>
+                                <button id="nms-batch-btn" class="btn btn-secondary btn-sm" title="Batch Import or Copy/Paste Devices" style="height: 32px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-file-import"></i> Excel Batch Sync
+                                </button>
+                            </div>
+                            <!-- Connections buttons -->
+                            <div id="footer-actions-connections" class="hidden" style="display: flex; gap: 8px;">
+                                <button id="add-connection-row-btn" class="btn btn-secondary btn-sm" style="height: 32px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-plus"></i> Add Connection Row
+                                </button>
+                                <button id="nms-conn-batch-btn" class="btn btn-secondary btn-sm" title="Batch Import or Copy/Paste Connections" style="height: 32px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-file-import"></i> Excel Batch Sync
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Validation & Save buttons (right-aligned) -->
+                        <div class="editor-footer-right" style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+                            <div id="editor-validation-msg" class="validation-msg success" style="margin: 0; padding: 6px 12px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-circle-check"></i> Topology config is valid.
+                            </div>
+                            <button id="nms-save-btn" class="btn btn-primary" style="height: 32px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-floppy-disk"></i> Save & Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Console SSH View -->
+        <section id="console-view" class="view-panel hidden">
+            <div class="view-header-row" style="margin-bottom: 20px;">
+                <div class="view-header">
+                    <h2><i class="fa-solid fa-terminal"></i> Device Console Gateway</h2>
+                    <p class="view-desc">Establish secure SSH tunnels to network routers and OLT cabinets via their designated jumpbox servers.</p>
+                </div>
+            </div>
+
+            <!-- Upper Bar: Jumpbox Configuration & Gateway Connection -->
+            <div style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch;">
+                <!-- Jumpbox Configuration Card -->
+                <div class="glass-card" style="flex: 1; padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+                    <h4 style="margin: 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-server"></i> Jumpbox Configuration
+                    </h4>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
+                            <label for="console-router-jb" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">Router Jumpbox IP</label>
+                            <input type="text" id="console-router-jb" placeholder="10.10.10.1" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
+                            <label for="console-olt-jb" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">OLT Jumpbox IP</label>
+                            <input type="text" id="console-olt-jb" placeholder="10.10.10.2" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: auto; padding-top: 4px;">
+                        <button id="console-save-jb-btn" class="btn btn-secondary btn-sm" style="flex: 1; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+                            <i class="fa-solid fa-floppy-disk"></i> Update Jumpboxes
+                        </button>
+                        <button id="console-open-auto-cmd-btn" class="btn btn-secondary btn-sm" style="flex: 1; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px dashed var(--primary); background: rgba(59, 130, 246, 0.1);">
+                            <i class="fa-solid fa-gears"></i> Auto-Command Config
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 1. Jumpbox Gateway Connection Card -->
+                <div class="glass-card" id="console-jb-conn-card" style="flex: 1.5; padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+                    <h4 style="margin: 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-server"></i> 1. Jumpbox Gateway
+                    </h4>
+                    
+                    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 140px;">
+                            <label for="console-jb-select" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">Select Jumpbox</label>
+                            <select id="console-jb-select" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;">
+                                <option value="router">Router Jumpbox (IP: -)</option>
+                                <option value="olt">OLT Jumpbox (IP: -)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 120px;">
+                            <label for="console-ssh-jb-user" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">Username</label>
+                            <input type="text" id="console-ssh-jb-user" placeholder="admin" value="admin" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        
+                        <div class="form-group" style="margin: 0; flex: 1; min-width: 120px;">
+                            <label for="console-ssh-jb-pass" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">Password</label>
+                            <input type="password" id="console-ssh-jb-pass" placeholder="••••••••" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        
+                        <button id="console-jb-connect-btn" class="btn btn-primary" style="padding: 9px 16px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; height: 35px; min-width: 120px;">
+                            <i class="fa-solid fa-link"></i> Connect
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 20px; align-items: stretch; height: 650px;">
+                <!-- Left Control Panel -->
+                <div style="width: 320px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0;">
+                    <!-- 2. Target Device & Connection Card -->
+                    <div class="glass-card" id="console-target-card" style="padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; height: 100%; opacity: 0.5; pointer-events: none; transition: all 0.3s ease;">
+                        <h4 style="margin: 0 0 4px 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-network-wired"></i> 2. Target Device SSH
+                        </h4>
+                        
+                        <div class="form-group" style="margin: 0;">
+                            <label for="console-device-select" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">Target Device</label>
+                            <select id="console-device-select" style="width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;">
+                                <option value="">-- Select a Device --</option>
+                            </select>
+                        </div>
+
+                        <div id="console-device-info-preview" class="hidden" style="padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px dashed var(--border-color); font-size: 0.75rem; display: flex; flex-direction: column; gap: 4px;">
+                            <div><strong>IP Address:</strong> <span id="console-info-ip">-</span></div>
+                            <div><strong>Device Type:</strong> <span id="console-info-type">-</span></div>
+                            <div><strong>Brand/Model:</strong> <span id="console-info-brand">-</span></div>
+                        </div>
+
+                        <!-- Target Device Credentials Sub-section -->
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                            <span style="font-size: 0.7rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Target Device Auth Password</span>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="hidden" id="console-ssh-dev-user" value="admin" />
+                                <div style="flex: 1;">
+                                    <input type="password" id="console-ssh-dev-pass" placeholder="Enter Target Password" style="width: 100%; padding: 6px 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.75rem;" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="console-connect-btn" class="btn btn-primary" style="width: 100%; padding: 10px; font-size: 0.8rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; margin-top: auto;">
+                            <i class="fa-solid fa-plug"></i> Establish Tunnel
+                        </button>
+                        
+                        <!-- Multi-Router Scanning Section -->
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                            <span style="font-size: 0.7rem; color: var(--success); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block;">Bulk Diagnostic Audit</span>
+                            
+                            <!-- Scan Button -->
+                            <button id="console-diagnose-all-btn" class="btn btn-success" style="width: 100%; padding: 8px; font-size: 0.75rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: 600; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: var(--success); transition: all 0.2s;" title="Scan all routers in the topology sequentially and check optical power levels">
+                                <i class="fa-solid fa-network-wired"></i> Scan All Routers
+                            </button>
+                            
+                            <!-- Scan Control Buttons (Pause/Stop, hidden by default) -->
+                            <div id="console-scan-controls" class="hidden" style="display: flex; gap: 8px; width: 100%;">
+                                <button id="console-scan-pause-btn" class="btn" style="flex: 1; padding: 6px; font-size: 0.72rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 600; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; transition: all 0.2s;" title="Pause scan">
+                                    <i class="fa-solid fa-pause"></i> <span id="console-scan-pause-text">Pause</span>
+                                </button>
+                                <button id="console-scan-stop-btn" class="btn" style="flex: 1; padding: 6px; font-size: 0.72rem; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 600; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; transition: all 0.2s;" title="Stop scan">
+                                    <i class="fa-solid fa-stop"></i> Stop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Terminal Console Panel -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; position: relative;">
+                    <!-- Terminal Header Bar -->
+                    <div style="background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="console-status-led" style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444; display: inline-block;"></span>
+                            <span id="console-status-text" style="font-size: 0.75rem; font-family: monospace; color: var(--text-muted);">CONSOLE DISCONNECTED</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="console-mode-badge" class="hidden" style="font-size: 0.65rem; padding: 2px 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; border-radius: 20px; font-family: monospace;">SIMULATION MODE</span>
+                            <button id="console-show-saved-scan-btn" class="hidden" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-family: monospace; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: all 0.2s;" title="Show last saved Optical Power Scan report">
+                                <i class="fa-solid fa-table-list"></i> Saved Optical Report
+                            </button>
+                            <button id="console-diagnose-btn" class="hidden" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: var(--primary); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; font-family: monospace; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: all 0.2s;" title="Scan connection ports on this device and measure received power levels">
+                                <i class="fa-solid fa-square-poll-horizontal"></i> Diagnose Port Power
+                            </button>
+                            <button id="console-clear-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; font-family: monospace; display: flex; align-items: center; gap: 4px;" title="Clear screen">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Screen -->
+                    <div id="console-terminal-screen" style="flex: 1; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; color: #10b981; line-height: 1.5; background: #030712; display: flex; flex-direction: column; gap: 6px;">
+                        <div style="color: var(--text-muted);">[System Gateway Console initialization complete. Select target device and establish secure tunnel to start SSH shell session.]</div>
+                    </div>
+
+                    <!-- Diagnostics Results Card (Hidden by default) -->
+                    <div id="console-diagnostics-card" class="hidden" style="background: #0f172a; border-top: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 340px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <h4 style="margin: 0; font-size: 0.85rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-square-poll-horizontal"></i> Connection Optical Power Summary
+                                </h4>
+                                <span id="console-optical-timestamp" style="font-size: 0.7rem; color: #10b981; font-family: monospace; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);" class="hidden"></span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="console-diagnose-progress" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;"></span>
+                                <button id="console-close-diagnostics-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;" title="Close table"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                        <div class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 4px; overflow-y: auto; max-height: 250px; margin: 0; background: rgba(5, 8, 16, 0.4);">
+                            <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.8);">
+                                        <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Router</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Target Connection</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device Port</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">Rx Power</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">Low Alarm</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">Low Warn</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">High Warn</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">High Alarm</th>
+                                        <th style="padding: 6px 10px; color: var(--primary); text-align: center; width: 120px; font-family: 'Outfit', sans-serif; font-weight: 600;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="console-diagnostics-tbody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Input Row -->
+                    <div id="console-input-row" class="hidden" style="background: #090d16; border-top: 1px solid var(--border-color); padding: 10px 15px; display: flex; align-items: center; gap: 8px;">
+                        <span id="console-prompt" style="font-family: monospace; font-size: 0.85rem; color: #3b82f6; font-weight: 600; white-space: nowrap;">localhost$</span>
+                        <input type="text" id="console-terminal-input" style="flex: 1; background: transparent; border: none; outline: none; color: #fff; font-family: monospace; font-size: 0.85rem; padding: 0; margin: 0; width: 100%;" autofocus placeholder="Type command (e.g. show version, show ip interface brief) and press Enter..." />
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 4. Dynamic detailed fiber modal (HTML5 Native Dialog) -->
+    <div id="fiber-modal" class="premium-modal hidden">
+        <div class="modal-wrapper">
+            <!-- Modal Header -->
+            <header class="modal-header">
+                <div class="modal-title-desc">
+                    <h3 id="modal-fiber-title">Core-001</h3>
+                    <div class="modal-tags">
+                        <span class="tag tag-wavelength" id="modal-tag-wavelength">1550 nm</span>
+                        <span class="badge" id="modal-badge-status">Pass</span>
+                    </div>
+                </div>
+                <button id="close-modal-x-btn" class="btn-close-icon"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+
+            <!-- Modal Content (Scrollable Grid) -->
+            <div class="modal-content-grid">
+                
+                <!-- Section 1: Detailed Metadata Table -->
+                <div class="modal-card metadata-card">
+                    <h4><i class="fa-solid fa-circle-info"></i> Measurement Parameters</h4>
+                    <div class="details-table-wrapper">
+                        <table class="details-table">
+                            <tbody>
+                                <tr>
+                                    <th>Cable ID</th>
+                                    <td id="m-cable-id">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Fiber ID / Number</th>
+                                    <td id="m-fiber-id">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Measurement Wavelength</th>
+                                    <td id="m-wavelength">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Pulse Width</th>
+                                    <td id="m-pulse-width">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Index of Refraction (IoR)</th>
+                                    <td id="m-ior">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Backscatter Coeff.</th>
+                                    <td id="m-backscatter">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Total Fiber Length</th>
+                                    <td id="m-total-length">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Total Fiber Loss</th>
+                                    <td id="m-total-loss">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Average Attenuation</th>
+                                    <td id="m-avg-attenuation">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Optical Return Loss (ORL)</th>
+                                    <td id="m-orl">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Acquisition Timestamp</th>
+                                    <td id="m-datetime">-</td>
+                                </tr>
+                                <tr>
+                                    <th>OTDR Hardware</th>
+                                    <td id="m-hardware">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Operator Name</th>
+                                    <td id="m-operator">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Comment</th>
+                                    <td id="m-comment">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section 2: Event Log Table -->
+                <div class="modal-card events-card">
+                    <h4><i class="fa-solid fa-table-list"></i> Key Events Table</h4>
+                    <div class="events-table-wrapper">
+                        <table class="events-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-num">#</th>
+                                    <th>Distance (km)</th>
+                                    <th>Event Type</th>
+                                    <th>Loss (dB)</th>
+                                    <th>Reflectance (dB)</th>
+                                    <th>Slope (dB/km)</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-table-body">
+                                <!-- Dynamic event rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section 3: Trace Curve Graph -->
+                <div class="modal-card trace-chart-card" style="display: flex; flex-direction: column;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0;"><i class="fa-solid fa-wave-sine"></i> High-Resolution Trace Plot</h4>
+                        <div style="display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: var(--border-radius-sm);">
+                                    <input type="checkbox" id="lock-y-axis-modal" checked style="cursor: pointer; width: 12px; height: 12px;" />
+                            <label for="lock-y-axis-modal" style="font-size: 0.7rem; color: var(--text-main); font-weight: 600; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; margin: 0;">
+                                <i class="fa-solid fa-lock" style="font-size: 0.65rem; color: var(--text-muted);"></i> Lock Y-Axis (Power)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-plotly-wrapper" style="flex-grow: 1;">
+                        <div id="modal-plotly-chart" class="plotly-chart"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <footer class="modal-footer">
+                <div class="failure-reasons-warning hidden" id="modal-failure-reasons">
+                    <!-- Dynamic failure explanations -->
+                </div>
+                <div class="modal-actions-right">
+                    <button id="pdf-report-btn" class="btn btn-secondary">
+                        <i class="fa-solid fa-file-pdf"></i> Print PDF Report
+                    </button>
+                    <button id="close-modal-btn" class="btn btn-dark">Close</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 5. Slide-out thresholds settings drawer -->
+    <aside id="settings-drawer" class="settings-drawer">
+        <div class="drawer-header">
+            <h3><i class="fa-solid fa-sliders"></i> Quality Thresholds</h3>
+            <button id="close-settings-btn" class="btn-close-icon"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-content">
+            <p class="drawer-help-text">Define quality control limits. Measurements exceeding these limits are flagged instantly in red on the dashboard.</p>
+            
+            <div class="form-group">
+                <label for="set-max-splice">Max Splice Loss (dB)</label>
+                <div class="input-group">
+                    <input type="number" id="set-max-splice" step="0.01" min="0.01" max="1.0" value="0.10" />
+                    <span class="unit">dB</span>
+                </div>
+                <small class="form-help">Standard fusion splice limit (typical: 0.05 - 0.15 dB)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="set-max-connector">Max Connector Loss (dB)</label>
+                <div class="input-group">
+                    <input type="number" id="set-max-connector" step="0.05" min="0.05" max="3.0" value="0.50" />
+                    <span class="unit">dB</span>
+                </div>
+                <small class="form-help">Max loss allowed at adapter interface (typical: 0.3 - 0.7 dB)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="set-max-att-1310">Max Attenuation at 1310 nm</label>
+                <div class="input-group">
+                    <input type="number" id="set-max-att-1310" step="0.01" min="0.1" max="1.0" value="0.40" />
+                    <span class="unit">dB/km</span>
+                </div>
+                <small class="form-help">Typical single-mode standard at 1310nm is 0.35 - 0.40 dB/km</small>
+            </div>
+
+            <div class="form-group">
+                <label for="set-max-att-1550">Max Attenuation at 1550 nm</label>
+                <div class="input-group">
+                    <input type="number" id="set-max-att-1550" step="0.01" min="0.1" max="1.0" value="0.25" />
+                    <span class="unit">dB/km</span>
+                </div>
+                <small class="form-help">Typical single-mode standard at 1550nm is 0.18 - 0.25 dB/km</small>
+            </div>
+
+            <div class="form-group">
+                <label for="set-max-total-loss">Max Total Link Loss (dB)</label>
+                <div class="input-group">
+                    <input type="number" id="set-max-total-loss" step="0.5" min="1.0" max="50.0" value="15.0" />
+                    <span class="unit">dB</span>
+                </div>
+                <small class="form-help">Max loss allowable for total fiber link budget</small>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button id="save-settings-btn" class="btn btn-primary btn-full-width">
+                <i class="fa-solid fa-circle-check"></i> Apply New Thresholds
+            </button>
+        </div>
+    </aside>
+
+    <!-- Overlay backdrop for drawer closing -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+
+    <!-- 5. Excel Batch Import/Export Modal -->
+    <div id="nms-batch-modal" class="premium-modal hidden">
+        <div class="modal-wrapper" style="max-width: 650px;">
+            <!-- Modal Header -->
+            <header class="modal-header">
+                <div class="modal-title-desc">
+                    <h3><i class="fa-solid fa-file-import"></i> Excel/Spreadsheet Batch Sync</h3>
+                    <p class="modal-subtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Copy-paste tab-separated device data from/to Excel or Google Sheets</p>
+                </div>
+                <button id="close-batch-modal-x" class="btn-close-icon"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            
+            <!-- Modal Content -->
+            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 70vh;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">Format columns: <strong>Name [tab] Type [tab] Brand/Model [tab] IP [tab] Status</strong></span>
+                    <button id="batch-copy-current-btn" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                        <i class="fa-solid fa-copy"></i> Copy Current Devices
+                    </button>
+                </div>
+                
+                <textarea id="batch-paste-area" rows="8" placeholder="Paste Excel rows here (or type/edit tab-separated values)...
+Example:
+Core-Router-A	Router	Cisco NCS-5500	10.0.0.1	Online
+OLT-Bogor-1	OLT	ZTE C600	172.16.10.11	Online" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); color: var(--text-main); font-family: monospace; font-size: 0.75rem; padding: 10px; border-radius: var(--border-radius-sm); resize: vertical; outline: none;"></textarea>
+                
+                <div class="form-group" style="margin: 0;">
+                    <label for="batch-import-mode" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 5px; font-weight: 500;">Import Mode</label>
+                    <select id="batch-import-mode" style="width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px; border-radius: var(--border-radius-sm); outline: none;">
+                        <option value="append">Append parsed items to current devices</option>
+                        <option value="replace">Replace all current devices</option>
+                    </select>
+                </div>
+
+                <div id="batch-preview-container" class="hidden" style="margin-top: 5px;">
+                    <h4 style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Preview Parsed Rows (<span id="batch-preview-count">0</span>):</h4>
+                    <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; background: rgba(0, 0, 0, 0.15);">
+                        <table class="spreadsheet-table" style="font-size: 0.75rem;">
+                            <thead>
+                                <tr style="background: rgba(15, 23, 42, 0.9);">
+                                    <th style="padding: 6px 10px;">Name</th>
+                                    <th style="padding: 6px 10px;">Type</th>
+                                    <th style="padding: 6px 10px;">Brand & Model</th>
+                                    <th style="padding: 6px 10px;">IP Address</th>
+                                    <th style="padding: 6px 10px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-preview-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <footer class="modal-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 15px 20px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                <div id="batch-error-msg" class="validation-msg error hidden" style="flex: 1; padding: 6px 12px; margin: 0; font-size: 0.7rem;"></div>
+                <button id="batch-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="batch-apply-btn" class="btn btn-primary" disabled>
+                    <i class="fa-solid fa-circle-check"></i> Apply to Grid
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 6. Excel Connections Batch Import/Export Modal -->
+    <div id="nms-conn-batch-modal" class="premium-modal hidden">
+        <div class="modal-wrapper" style="max-width: 750px;">
+            <!-- Modal Header -->
+            <header class="modal-header">
+                <div class="modal-title-desc">
+                    <h3><i class="fa-solid fa-file-import"></i> Excel/Spreadsheet Connections Sync</h3>
+                    <p class="modal-subtitle" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Copy-paste tab-separated connection data from/to Excel or Google Sheets</p>
+                </div>
+                <button id="close-conn-batch-modal-x" class="btn-close-icon"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            
+            <!-- Modal Content -->
+            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 70vh;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">Format columns: <strong>Source [tab] Src Port [tab] Src LAG [tab] Target [tab] Tgt Port [tab] Tgt LAG [tab] Capacity [tab] Link Name [tab] Type [tab] Status [tab] Dual-Track Port [tab] Multipath LAG</strong></span>
+                    <button id="batch-copy-current-conns-btn" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                        <i class="fa-solid fa-copy"></i> Copy Current Connections
+                    </button>
+                </div>
+                
+                <textarea id="batch-conn-paste-area" rows="8" placeholder="Paste Excel rows here (or type/edit tab-separated values)...
+Example:
+Core-Router-A	GE-1/0/1	LAG-10	OLT-Bogor-1	GE-1/0/1		10	FO-Link-1	Uplink	Active	false	false
+Core-Router-A	GE-1/0/2		Core-Router-B	GE-1/0/2		100	FO-Link-2	Interlink	Active	true	true" style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); color: var(--text-main); font-family: monospace; font-size: 0.75rem; padding: 10px; border-radius: var(--border-radius-sm); resize: vertical; outline: none;"></textarea>
+                
+                <div class="form-group" style="margin: 0;">
+                    <label for="batch-conn-import-mode" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 5px; font-weight: 500;">Import Mode</label>
+                    <select id="batch-conn-import-mode" style="width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px; border-radius: var(--border-radius-sm); outline: none;">
+                        <option value="append">Append parsed items to current connections</option>
+                        <option value="replace">Replace all current connections</option>
+                    </select>
+                </div>
+
+                <div id="batch-conn-preview-container" class="hidden" style="margin-top: 5px;">
+                    <h4 style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Preview Parsed Rows (<span id="batch-conn-preview-count">0</span>):</h4>
+                    <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; background: rgba(0, 0, 0, 0.15);">
+                        <table class="spreadsheet-table" style="font-size: 0.75rem;">
+                            <thead>
+                                <tr style="background: rgba(15, 23, 42, 0.9);">
+                                    <th style="padding: 6px 10px;">Source</th>
+                                    <th style="padding: 6px 10px;">Src Port</th>
+                                    <th style="padding: 6px 10px;">Src LAG</th>
+                                    <th style="padding: 6px 10px;">Target</th>
+                                    <th style="padding: 6px 10px;">Tgt Port</th>
+                                    <th style="padding: 6px 10px;">Tgt LAG</th>
+                                    <th style="padding: 6px 10px;">Capacity</th>
+                                    <th style="padding: 6px 10px;">Link Name</th>
+                                    <th style="padding: 6px 10px;">Type</th>
+                                    <th style="padding: 6px 10px;">Status</th>
+                                    <th style="padding: 6px 10px;">Dual-Track Port</th>
+                                    <th style="padding: 6px 10px;">Multipath LAG</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-conn-preview-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <footer class="modal-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 15px 20px; border-top: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.15);">
+                <div id="batch-conn-error-msg" class="validation-msg error hidden" style="flex: 1; padding: 6px 12px; margin: 0; font-size: 0.7rem;"></div>
+                <button id="batch-conn-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="batch-conn-apply-btn" class="btn btn-primary" disabled>
+                    <i class="fa-solid fa-circle-check"></i> Apply to Grid
+                </button>
+            </footer>
+        </div>
+    </div>
+    <!-- 5. Console Auto Commands Configuration Modal -->
+    <div id="console-auto-cmd-modal" class="premium-modal hidden">
+        <div class="modal-wrapper" style="max-width: 750px; display: flex; flex-direction: column; max-height: 85vh;">
+            <div class="glass-card" style="display: flex; flex-direction: column; max-height: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.95); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+                <!-- Modal Header -->
+                <header class="modal-header" style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; color: var(--primary); font-family: 'Outfit', sans-serif;">
+                            <i class="fa-solid fa-gears"></i> Auto-Command Configuration
+                        </h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.75rem; color: var(--text-muted); font-family: 'Inter', sans-serif;">
+                            Define initial commands automatically executed immediately after establishing SSH target device connections.
+                        </p>
+                    </div>
+                    <button id="console-auto-cmd-close-btn" class="btn-close-icon" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+                </header>
+
+                <!-- Modal Content -->
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; flex: 1;">
+                    <div class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                        <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.6);">
+                                    <th style="padding: 10px 15px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Brand/Model Pattern</th>
+                                    <th style="padding: 10px 15px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Auto First Command</th>
+                                    <th style="padding: 10px 15px; text-align: center; color: var(--primary); width: 80px; font-family: 'Outfit', sans-serif; font-weight: 600;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="console-auto-cmd-tbody">
+                                <!-- Populated dynamically via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Add New Row form -->
+                    <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.25); padding: 15px; border-radius: 6px; border: 1px dashed var(--border-color); margin-top: 5px;">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Brand/Model Pattern</label>
+                            <input type="text" id="console-new-pattern" placeholder="e.g. Nokia, ZTE, Cisco" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <div style="flex: 1.5; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Auto First Command</label>
+                            <input type="text" id="console-new-command" placeholder="e.g. environment no more" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <div style="align-self: flex-end; padding-bottom: 2px;">
+                            <button id="console-add-pattern-btn" class="btn btn-primary" style="padding: 8px 15px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; border-radius: 4px; height: 36px; cursor: pointer; font-weight: 600;">
+                                <i class="fa-solid fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Section 2: SSH Rules (Command Overrides) -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 10px;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-terminal"></i> SSH Rules (Command Overrides)
+                        </h4>
+                        <p style="margin: 0 0 10px 0; font-size: 0.7rem; color: var(--text-muted); font-family: 'Inter', sans-serif;">
+                            Specify custom SSH commands to be sent from the Jumpbox to target devices based on Brand/Model matching. Use `{ip}` to represent the target IP address.
+                        </p>
+                        <div class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 15px;">
+                            <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; margin: 0;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.6);">
+                                        <th style="padding: 10px 15px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Brand/Model Pattern</th>
+                                        <th style="padding: 10px 15px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">SSH Command Template</th>
+                                        <th style="padding: 10px 15px; text-align: center; color: var(--primary); width: 80px; font-family: 'Outfit', sans-serif; font-weight: 600;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="console-ssh-rules-tbody">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Add New SSH Rule form -->
+                        <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.25); padding: 15px; border-radius: 6px; border: 1px dashed var(--border-color);">
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Brand/Model Pattern</label>
+                                <input type="text" id="console-new-ssh-pattern" placeholder="e.g. Nokia 7450 ESS-6" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                            </div>
+                            <div style="flex: 1.5; display: flex; flex-direction: column; gap: 4px;">
+                                <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">SSH Command Template</label>
+                                <input type="text" id="console-new-ssh-template" placeholder="e.g. ssh -oKexAlgorithms=+diffie-hellman... {ip}" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                            </div>
+                            <div style="align-self: flex-end; padding-bottom: 2px;">
+                                <button id="console-add-ssh-rule-btn" class="btn btn-primary" style="padding: 8px 15px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; border-radius: 4px; height: 36px; cursor: pointer; font-weight: 600;">
+                                    <i class="fa-solid fa-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <footer style="padding: 15px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: rgba(10, 15, 30, 0.45); align-items: center;">
+                    <button id="console-auto-cmd-cancel-btn" class="btn btn-secondary" style="padding: 8px 15px; font-size: 0.8rem; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button id="console-auto-cmd-save-btn" class="btn btn-primary" style="padding: 8px 20px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-circle-check"></i> Save Configurations
+                    </button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Pages Login Gate Overlay (Shown in Static Presentation Mode until authenticated) -->
+    <div id="static-login-overlay" class="hidden" style="position: fixed; inset: 0; z-index: 99999; background: radial-gradient(circle at top, #0f172a 0%, #030712 100%); display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="glass-card" style="width: 100%; max-width: 410px; padding: 32px 28px; border-radius: 14px; background: rgba(15, 23, 42, 0.88); border: 1px solid var(--border-color); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75); display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;">
+                <div style="width: 54px; height: 54px; border-radius: 14px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.35); display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem; box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h2 style="margin: 0; font-size: 1.25rem; font-family: 'Outfit', sans-serif; color: var(--text-main);">Data Core & Measurements</h2>
+                    <p style="margin: 4px 0 0 0; font-size: 0.78rem; color: var(--text-muted);">Protected Dashboard • AES-256 Encrypted Snapshot</p>
+                </div>
+            </div>
+
+            <form id="static-login-form" style="display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="static-login-user" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Username</label>
+                    <input type="text" id="static-login-user" autocomplete="username" required placeholder="Enter your username" style="width: 100%; padding: 10px 12px; background: rgba(3, 7, 18, 0.8); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; outline: none; font-size: 0.88rem;" />
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label for="static-login-pass" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Password</label>
+                    <input type="password" id="static-login-pass" autocomplete="current-password" required placeholder="••••••••" style="width: 100%; padding: 10px 12px; background: rgba(3, 7, 18, 0.8); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; outline: none; font-size: 0.88rem;" />
+                </div>
+                <div id="static-login-error" class="hidden" style="font-size: 0.78rem; color: #ef4444; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); padding: 8px 12px; border-radius: 6px; text-align: center;">
+                    Invalid username or password.
+                </div>
+                <button type="submit" id="static-login-submit-btn" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 0.9rem; font-weight: 600; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; margin-top: 4px;">
+                    <i class="fa-solid fa-unlock-keyhole"></i> <span>Unlock Dashboard</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Local Laptop Modal: Manage GitHub Pages Authorized Users -->
+    <div id="pages-auth-modal" class="premium-modal hidden" style="z-index: 3500;">
+        <div class="modal-wrapper" style="max-width: 640px; width: 92%; height: auto; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+                <header style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8);">
+                    <h3 style="margin: 0; font-size: 1rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-user-shield"></i> GitHub Pages Access Control (AES-256)
+                    </h3>
+                    <button id="pages-auth-close-x-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;"><i class="fa-solid fa-xmark"></i></button>
+                </header>
+
+                <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto;">
+                    <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+                        Only the users listed below can unlock and decrypt the dashboard on GitHub Pages. After adding or removing users, click <strong>Save Access List</strong> and then click <strong>Publish to GitHub</strong>.
+                    </p>
+
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                            <thead>
+                                <tr style="background: rgba(15, 23, 42, 0.6); border-bottom: 1px solid var(--border-color); text-align: left;">
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Username</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Password</th>
+                                    <th style="padding: 10px 12px; color: var(--text-muted);">Role / Note</th>
+                                    <th style="padding: 10px 12px; width: 60px; text-align: center; color: var(--text-muted);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pages-auth-users-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; align-items: flex-end; background: rgba(0,0,0,0.25); padding: 14px; border-radius: 6px; border: 1px dashed var(--border-color);">
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Username</label>
+                            <input type="text" id="pages-new-user-name" placeholder="e.g. budi" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Password</label>
+                            <input type="text" id="pages-new-user-pass" placeholder="Password" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Note</label>
+                            <input type="text" id="pages-new-user-note" placeholder="e.g. Core Team" style="width: 100%; padding: 8px 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; outline: none; font-size: 0.8rem;" />
+                        </div>
+                        <button id="pages-add-user-btn" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.8rem; height: 35px; display: flex; align-items: center; gap: 6px; border-radius: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+
+                <footer style="padding: 14px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background: rgba(10, 15, 30, 0.45);">
+                    <button id="pages-auth-cancel-btn" class="btn btn-secondary" style="padding: 8px 15px; font-size: 0.8rem;">Cancel</button>
+                    <button id="pages-auth-save-btn" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-circle-check"></i> Save Access List
+                    </button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Application Logic -->
+    <!-- Leaflet.js Map Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+</body>
+</html>

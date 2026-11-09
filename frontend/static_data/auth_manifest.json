@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kid": "92b744806da7",
+  "users": [
+    {
+      "username": "admin",
+      "salt": "jm5HGRZrDrVBRwJ8CmS5YA==",
+      "iterations": 100000,
+      "iv": "DhZQAFBQNki0xX4H",
+      "wrapped_key": "G5Z2KnzAHkWdKYfmD95vO86nlsdfbu5Ghc06DsRehIOjDyC7RbdQZdqVKTxvMDo6"
+    },
+    {
+      "username": "hilman",
+      "salt": "oZB0/NGwQuKbBqUCu2y36g==",
+      "iterations": 100000,
+      "iv": "/MgtEA7Kmsbipwga",
+      "wrapped_key": "EfzaD5kGqjTnLPnQ/ppENZViwXOwESLIHGkYaCH04E93U1hs5p84vnKQVnAFcDsX"
+    }
+  ]
+}

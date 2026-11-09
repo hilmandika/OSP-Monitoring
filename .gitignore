@@ -1,0 +1,28 @@
+# Ignore local Python virtual environments
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Ignore frontend dependencies
+node_modules/
+dist/
+build/
+
+# Ignore local configuration and secret files
+.env
+*.log
+config.json
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+otdr_data/
+otdr_data_samples/
+backend/.parse_cache/
+backend/data/
+backend/config.json
+
+
