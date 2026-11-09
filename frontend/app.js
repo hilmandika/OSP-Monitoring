@@ -2158,10 +2158,12 @@ function jsonStringify(obj) {
 function getVisibilityFilters() {
     const showRoutersCheck = document.getElementById("nms-show-routers");
     const showOltsCheck = document.getElementById("nms-show-olts");
+    const onlyOpticalNokCheck = document.getElementById("nms-only-optical-nok");
     
     return {
         showRouters: showRoutersCheck ? showRoutersCheck.checked : true,
-        showOlts: showOltsCheck ? showOltsCheck.checked : true
+        showOlts: showOltsCheck ? showOltsCheck.checked : true,
+        onlyOpticalNok: onlyOpticalNokCheck ? onlyOpticalNokCheck.checked : false
     };
 }
 
@@ -2331,6 +2333,7 @@ function setupNmsEventListeners() {
     // Visibility filter change listeners
     const showRoutersCheck = document.getElementById("nms-show-routers");
     const showOltsCheck = document.getElementById("nms-show-olts");
+    const onlyOpticalNokCheck = document.getElementById("nms-only-optical-nok");
     const handleFilterChange = () => {
         renderNmsSpreadsheet();
         if (appState.nms.layoutMode === "geo") {
@@ -2341,6 +2344,7 @@ function setupNmsEventListeners() {
     };
     if (showRoutersCheck) showRoutersCheck.addEventListener("change", handleFilterChange);
     if (showOltsCheck) showOltsCheck.addEventListener("change", handleFilterChange);
+    if (onlyOpticalNokCheck) onlyOpticalNokCheck.addEventListener("change", handleFilterChange);
     
     // Bind SVG Mouse Zoom and Pan Event Listeners
     setupNmsCanvasInteractions();
@@ -2570,6 +2574,210 @@ async function initNmsView() {
     }
 }
 
+async function syncNmsOpticalScanData() {
+    if (!appState.nms.opticalScan) {
+        appState.nms.opticalScan = { updated_at: null, results: [], byDevicePort: {} };
+    }
+    try {
+        const res = await fetch(`${API_BASE}/console/optical-scan`);
+        if (res.ok) {
+            const scanData = await res.json();
+            const results = Array.isArray(scanData.results) ? scanData.results : [];
+            const byDevicePort = {};
+            results.forEach(item => {
+                if (item.router && item.port) {
+                    byDevicePort[`${item.router.trim()}::${item.port.trim()}`] = item;
+                }
+            });
+            appState.nms.opticalScan = {
+                updated_at: scanData.updated_at || null,
+                results: results,
+                byDevicePort: byDevicePort
+            };
+        }
+    } catch (err) {
+        console.error("Failed to sync optical scan data for topology:", err);
+    }
+}
+
+function evaluatePortOpticalHealth(optItem) {
+    if (!optItem) {
+        return { severity: "none", statusText: "Not Scanned", color: "var(--text-muted)", rxText: "-" };
+    }
+    if (optItem.status === "unsupported") {
+        return { severity: "unsupported", statusText: "DDM N/A", color: "var(--text-muted)", rxText: "N/A" };
+    }
+    if (optItem.status !== "success") {
+        const errLabel = optItem.status === "unreachable" ? "Unreachable" : "Scan Failed";
+        return { severity: "alarm", statusText: errLabel, color: "#ef4444", rxText: errLabel };
+    }
+    let tStatus = optItem.thresholdStatus;
+    if (!tStatus && optItem.value !== undefined && optItem.value !== null) {
+        if (optItem.value <= optItem.lowAlarm) tStatus = "Low Alarm";
+        else if (optItem.value <= optItem.lowWarn) tStatus = "Low Warning";
+        else if (optItem.value >= optItem.highAlarm) tStatus = "High Alarm";
+        else if (optItem.value >= optItem.highWarn) tStatus = "High Warning";
+        else tStatus = "Normal";
+    }
+    tStatus = tStatus || "Normal";
+    const rxText = optItem.displayText || (optItem.value !== undefined && optItem.value !== null ? `${Number(optItem.value).toFixed(2)} dBm` : "-");
+
+    if (tStatus.includes("Alarm")) {
+        return { severity: "alarm", statusText: tStatus, color: "#ef4444", rxText };
+    }
+    if (tStatus.includes("Warning")) {
+        return { severity: "warning", statusText: tStatus, color: "#f97316", rxText };
+    }
+    return { severity: "normal", statusText: "Normal", color: "#10b981", rxText };
+}
+
+function getConnectionOpticalInfo(conn) {
+    const byDevicePort = (appState.nms.opticalScan && appState.nms.opticalScan.byDevicePort) || {};
+    const sKey = `${(conn.source || "").trim()}::${(conn.source_interface || "").trim()}`;
+    const tKey = `${(conn.target || "").trim()}::${(conn.target_interface || "").trim()}`;
+    const sourceOpt = byDevicePort[sKey] || null;
+    const targetOpt = byDevicePort[tKey] || null;
+
+    const sHealth = evaluatePortOpticalHealth(sourceOpt);
+    const tHealth = evaluatePortOpticalHealth(targetOpt);
+
+    const rank = { alarm: 3, warning: 2, normal: 1, unsupported: 0, none: 0 };
+    const sRank = rank[sHealth.severity] || 0;
+    const tRank = rank[tHealth.severity] || 0;
+
+    let worstSeverity = "none";
+    let primaryOpt = sourceOpt || targetOpt;
+    let primaryHealth = sourceOpt ? sHealth : tHealth;
+    let primaryDevice = sourceOpt ? conn.source : conn.target;
+    let primaryPort = sourceOpt ? conn.source_interface : conn.target_interface;
+
+    if (sRank >= tRank && sRank > 0) {
+        worstSeverity = sHealth.severity;
+        primaryOpt = sourceOpt;
+        primaryHealth = sHealth;
+        primaryDevice = conn.source;
+        primaryPort = conn.source_interface;
+    } else if (tRank > sRank && tRank > 0) {
+        worstSeverity = tHealth.severity;
+        primaryOpt = targetOpt;
+        primaryHealth = tHealth;
+        primaryDevice = conn.target;
+        primaryPort = conn.target_interface;
+    }
+
+    const tooltipLines = [];
+    if (sourceOpt) {
+        tooltipLines.push(`Optical Rx (${conn.source} [${conn.source_interface}]): ${sHealth.rxText} [${sHealth.statusText}]`);
+    }
+    if (targetOpt) {
+        tooltipLines.push(`Optical Rx (${conn.target} [${conn.target_interface}]): ${tHealth.rxText} [${tHealth.statusText}]`);
+    }
+
+    return {
+        sourceOpt,
+        targetOpt,
+        sHealth,
+        tHealth,
+        worstSeverity,
+        isNok: worstSeverity === "alarm" || worstSeverity === "warning",
+        primaryOpt,
+        primaryHealth,
+        primaryDevice,
+        primaryPort,
+        tooltipLines
+    };
+}
+
+function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
+    if (!optItem) return "";
+    const health = evaluatePortOpticalHealth(optItem);
+    const isAlarm = health.severity === "alarm";
+    const isWarn = health.severity === "warning";
+
+    const borderCol = isAlarm ? "rgba(239, 68, 68, 0.45)" : isWarn ? "rgba(249, 115, 22, 0.45)" : "rgba(16, 185, 129, 0.25)";
+    const bgCol = isAlarm ? "rgba(239, 68, 68, 0.08)" : isWarn ? "rgba(249, 115, 22, 0.08)" : "rgba(16, 185, 129, 0.04)";
+    const badgeBg = isAlarm ? "rgba(239, 68, 68, 0.2)" : isWarn ? "rgba(249, 115, 22, 0.2)" : "rgba(16, 185, 129, 0.15)";
+
+    if (optItem.status !== "success") {
+        return `
+            <div style="margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); font-size: 0.72rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-bolt" style="color: var(--text-muted); margin-right: 4px;"></i>${escapeHTML(deviceName)} [${escapeHTML(portName)}]</span>
+                    <span class="badge" style="font-size: 0.62rem; padding: 2px 6px; background: rgba(255,255,255,0.06); color: var(--text-muted);">${escapeHTML(health.statusText)}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    const lowA = Number(optItem.lowAlarm ?? -20);
+    const lowW = Number(optItem.lowWarn ?? -16);
+    const highW = Number(optItem.highWarn ?? 0);
+    const highA = Number(optItem.highAlarm ?? 2);
+    const val = Number(optItem.value ?? 0);
+
+    // Compute normalized position [0..100%] on range [lowA - 4, highA + 2]
+    const minBound = lowA - 4;
+    const maxBound = highA + 2;
+    const span = Math.max(1, maxBound - minBound);
+    const clampPct = (v) => Math.max(2, Math.min(98, ((v - minBound) / span) * 100));
+
+    const lowAPct = clampPct(lowA);
+    const lowWPct = clampPct(lowW);
+    const highWPct = clampPct(highW);
+    const highAPct = clampPct(highA);
+    const valPct = clampPct(val);
+
+    return `
+        <div style="margin-top: 8px; padding: 10px; border-radius: 6px; background: ${bgCol}; border: 1px solid ${borderCol}; display: flex; flex-direction: column; gap: 7px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
+                    <i class="fa-solid ${isAlarm || isWarn ? 'fa-triangle-exclamation' : 'fa-bolt'}" style="color: ${health.color}; margin-right: 4px;"></i>${escapeHTML(deviceName)} [${escapeHTML(portName)}]
+                </span>
+                <span class="badge" style="font-size: 0.64rem; padding: 2px 7px; background: ${badgeBg}; color: ${health.color}; border: 1px solid ${borderCol}; font-weight: 700;">
+                    ${escapeHTML(health.statusText)}
+                </span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 0.7rem; color: var(--text-muted);">Measured Rx Power:</span>
+                <span style="font-size: 1rem; font-weight: 800; font-family: monospace; color: ${health.color};">${escapeHTML(health.rxText)}</span>
+            </div>
+
+            <!-- Visual DDM Threshold Meter -->
+            <div style="position: relative; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.45); overflow: visible; margin: 4px 0;">
+                <div style="position: absolute; inset: 0; border-radius: 4px; overflow: hidden; display: flex;">
+                    <div style="width: ${lowAPct}%; background: rgba(239, 68, 68, 0.55);" title="Low Alarm Zone"></div>
+                    <div style="width: ${Math.max(0, lowWPct - lowAPct)}%; background: rgba(249, 115, 22, 0.55);" title="Low Warning Zone"></div>
+                    <div style="width: ${Math.max(0, highWPct - lowWPct)}%; background: rgba(16, 185, 129, 0.55);" title="Normal Operating Zone"></div>
+                    <div style="width: ${Math.max(0, highAPct - highWPct)}%; background: rgba(249, 115, 22, 0.55);" title="High Warning Zone"></div>
+                    <div style="flex: 1; background: rgba(239, 68, 68, 0.55);" title="High Alarm Zone"></div>
+                </div>
+                <div style="position: absolute; left: ${valPct}%; top: -3px; width: 6px; height: 14px; border-radius: 3px; background: #ffffff; border: 1.5px solid ${health.color}; box-shadow: 0 0 6px ${health.color}; transform: translateX(-50%);" title="Rx: ${escapeHTML(health.rxText)}"></div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; font-family: monospace; font-size: 0.64rem; background: rgba(0,0,0,0.25); padding: 5px 4px; border-radius: 4px;">
+                <div>
+                    <div style="color: #fca5a5; font-size: 0.58rem;">Low Alm</div>
+                    <div style="color: var(--text-main); font-weight: 600;">${lowA.toFixed(1)}</div>
+                </div>
+                <div>
+                    <div style="color: #fdba74; font-size: 0.58rem;">Low Wrn</div>
+                    <div style="color: var(--text-main); font-weight: 600;">${lowW.toFixed(1)}</div>
+                </div>
+                <div>
+                    <div style="color: #fdba74; font-size: 0.58rem;">High Wrn</div>
+                    <div style="color: var(--text-main); font-weight: 600;">${highW.toFixed(1)}</div>
+                </div>
+                <div>
+                    <div style="color: #fca5a5; font-size: 0.58rem;">High Alm</div>
+                    <div style="color: var(--text-main); font-weight: 600;">${highA.toFixed(1)}</div>
+                </div>
+            </div>
+            ${optItem.toolTip ? `<div style="font-size: 0.65rem; font-family: monospace; color: var(--text-muted); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 4px;">${escapeHTML(optItem.toolTip)}</div>` : ""}
+        </div>
+    `;
+}
+
 async function loadNmsTopology() {
     const res = await fetch(`${API_BASE}/topology`);
     if (!res.ok) throw new Error("API server error loading topology");
@@ -2577,6 +2785,7 @@ async function loadNmsTopology() {
     
     appState.nms.devices = data.devices || [];
     appState.nms.connections = data.connections || [];
+    await syncNmsOpticalScanData();
     
     // Auto coordinate generation if missing
     let needsArrange = false;
@@ -2832,6 +3041,8 @@ function renderNmsLeafletMap() {
         conns.forEach((conn, index) => {
             const dist = (index - (n - 1) / 2.0) * spacing;
             const isConnSelected = conn.id === appState.nms.selectedConnectionId;
+            const optInfo = getConnectionOpticalInfo(conn);
+            const connMatchesFilter = isLinkMatch && (!filters.onlyOpticalNok || optInfo.isNok);
             
             const bitrateVal = parseInt(conn.bitrate) || 10;
             let color = "#10b981";
@@ -2845,32 +3056,49 @@ function renderNmsLeafletMap() {
             if (conns.length > 1) {
                 weight += 2.0; // Bolder weight for aggregated links!
             }
+
+            let optClass = "";
+            if (optInfo.worstSeverity === "alarm") {
+                color = "#ef4444";
+                weight = Math.max(weight + 1.5, 4.5);
+                optClass = "map-optical-alarm";
+            } else if (optInfo.worstSeverity === "warning") {
+                color = "#f97316";
+                weight = Math.max(weight + 1.0, 4.0);
+                optClass = "map-optical-warning";
+            }
             
-            const tooltipText = `Link: ${conn.link || 'Unnamed'}\nCapacity: ${conn.bitrate} Gbps\nType: ${conn.type || 'Interlink'}\nStatus: ${conn.status}\nPorts: ${conn.source_interface || 'no-port'} -> ${conn.target_interface || 'no-port'}`;
+            let tooltipText = `Link: ${conn.link || 'Unnamed'}\nCapacity: ${conn.bitrate} Gbps\nType: ${conn.type || 'Interlink'}\nStatus: ${conn.status}\nPorts: ${conn.source} [${conn.source_interface || 'no-port'}] ↔ ${conn.target} [${conn.target_interface || 'no-port'}]`;
+            if (optInfo.tooltipLines.length > 0) {
+                tooltipText += `\n` + optInfo.tooltipLines.join(`\n`);
+            }
+            
+            const lineClass = [isConnSelected ? "map-selected-line" : "", optClass].filter(Boolean).join(" ");
             
             if (conn.dual_track) {
                 const subOffset = 0.00003;
+                const dualColor = optInfo.isNok ? color : "#f59e0b";
                 
                 const line1 = L.polyline([
                     [lat1 + nx * (dist + subOffset), lng1 + ny * (dist + subOffset)],
                     [lat2 + nx * (dist + subOffset), lng2 + ny * (dist + subOffset)]
                 ], {
-                    color: "#f59e0b",
+                    color: dualColor,
                     weight: isConnSelected ? 6.5 : 4.5,
                     dashArray: conn.status === "Backup" ? "6, 6" : null,
-                    opacity: isLinkMatch ? 0.85 : 0.15,
-                    className: isConnSelected ? "map-selected-line" : ""
+                    opacity: connMatchesFilter ? 0.9 : 0.12,
+                    className: lineClass
                 }).addTo(appState.nms.mapLayers);
                 
                 const line2 = L.polyline([
                     [lat1 + nx * (dist - subOffset), lng1 + ny * (dist - subOffset)],
                     [lat2 + nx * (dist - subOffset), lng2 + ny * (dist - subOffset)]
                 ], {
-                    color: "#f59e0b",
+                    color: dualColor,
                     weight: isConnSelected ? 6.5 : 4.5,
                     dashArray: conn.status === "Backup" ? "6, 6" : null,
-                    opacity: isLinkMatch ? 0.85 : 0.15,
-                    className: isConnSelected ? "map-selected-line" : ""
+                    opacity: connMatchesFilter ? 0.9 : 0.12,
+                    className: lineClass
                 }).addTo(appState.nms.mapLayers);
                 
                 const onClick = () => selectNmsConnection(conn.id);
@@ -2886,12 +3114,25 @@ function renderNmsLeafletMap() {
                     color: color,
                     weight: isConnSelected ? 7.0 : weight,
                     dashArray: conn.status === "Backup" ? "6, 6" : null,
-                    opacity: isLinkMatch ? 0.85 : 0.15,
-                    className: isConnSelected ? "map-selected-line" : ""
+                    opacity: connMatchesFilter ? 0.9 : 0.12,
+                    className: lineClass
                 }).addTo(appState.nms.mapLayers);
                 
                 polyline.bindTooltip(tooltipText, { sticky: true });
                 polyline.on("click", () => selectNmsConnection(conn.id));
+            }
+
+            if (optInfo.isNok && connMatchesFilter) {
+                const midLat = (lat1 + lat2) / 2.0 + nx * dist;
+                const midLng = (lng1 + lng2) / 2.0 + ny * dist;
+                const badgeIcon = L.divIcon({
+                    className: "",
+                    html: `<div class="nms-map-optical-badge ${optInfo.worstSeverity}" title="Click to inspect optical power details"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(optInfo.primaryHealth.rxText)}</div>`,
+                    iconSize: [0, 0]
+                });
+                const badgeMarker = L.marker([midLat, midLng], { icon: badgeIcon, zIndexOffset: 900 }).addTo(appState.nms.mapLayers);
+                badgeMarker.bindTooltip(tooltipText, { direction: "top" });
+                badgeMarker.on("click", () => selectNmsConnection(conn.id));
             }
         });
     });
@@ -2986,6 +3227,7 @@ function renderNmsLeafletMap() {
             appState.nms.mapCentered = true;
         }
     }
+    updateNmsCounters();
 }
 
 function projectGeographicCoords() {
@@ -3742,6 +3984,7 @@ function renderNmsGraph() {
         conns.forEach((conn, index) => {
             const dist = (index - (n - 1) / 2.0) * spacing;
             const isConnSelected = conn.id === appState.nms.selectedConnectionId;
+            const optInfo = getConnectionOpticalInfo(conn);
             
             const bitrateVal = parseInt(conn.bitrate) || 10;
             let capClass = "capacity-10";
@@ -3750,6 +3993,7 @@ function renderNmsGraph() {
             
             const typeClass = conn.type === "Uplink" ? "type-uplink" : "type-interlink";
             const statusClass = conn.status === "Active" ? "active-traffic" : "status-backup";
+            const optLineClass = optInfo.worstSeverity === "alarm" ? "optical-nok-alarm" : optInfo.worstSeverity === "warning" ? "optical-nok-warning" : "";
             
             let isLinkMatch = true;
             if (query) {
@@ -3758,6 +4002,9 @@ function renderNmsGraph() {
                               (conn.link && conn.link.toLowerCase().includes(query)) ||
                               (conn.source_interface && conn.source_interface.toLowerCase().includes(query)) ||
                               (conn.target_interface && conn.target_interface.toLowerCase().includes(query));
+            }
+            if (filters.onlyOpticalNok && !optInfo.isNok) {
+                isLinkMatch = false;
             }
             const getBezierPathD = (x1, y1, x2, y2, connId) => {
                 const algoSelect = document.getElementById("nms-arrange-algorithm");
@@ -3796,43 +4043,56 @@ function renderNmsGraph() {
                 const subOffset = 3.0;
                 
                 const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path1.setAttribute("class", `nms-link-line dual-track-line ${capClass} ${typeClass} ${statusClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
+                path1.setAttribute("class", `nms-link-line dual-track-line ${capClass} ${typeClass} ${statusClass} ${optLineClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
                 path1.setAttribute("d", getBezierPathD(sourceNode.x + nx * (dist + subOffset), sourceNode.y + ny * (dist + subOffset), targetNode.x + nx * (dist + subOffset), targetNode.y + ny * (dist + subOffset), conn.id));
                 path1.setAttribute("data-id", conn.id);
                 linksGroup.appendChild(path1);
                 
                 const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path2.setAttribute("class", `nms-link-line dual-track-line ${capClass} ${typeClass} ${statusClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
+                path2.setAttribute("class", `nms-link-line dual-track-line ${capClass} ${typeClass} ${statusClass} ${optLineClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
                 path2.setAttribute("d", getBezierPathD(sourceNode.x - nx * (dist - subOffset), sourceNode.y - ny * (dist - subOffset), targetNode.x - nx * (dist - subOffset), targetNode.y - ny * (dist - subOffset), conn.id));
                 path2.setAttribute("data-id", conn.id);
                 linksGroup.appendChild(path2);
             } else {
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.setAttribute("class", `nms-link-line ${conns.length > 1 ? 'aggregated-line' : ''} ${capClass} ${typeClass} ${statusClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
+                path.setAttribute("class", `nms-link-line ${conns.length > 1 ? 'aggregated-line' : ''} ${capClass} ${typeClass} ${statusClass} ${optLineClass} ${!isLinkMatch ? 'search-dimmed' : ''} ${isConnSelected ? 'selected' : ''}`);
                 path.setAttribute("d", getBezierPathD(sourceNode.x + nx * dist, sourceNode.y + ny * dist, targetNode.x + nx * dist, targetNode.y + ny * dist, conn.id));
                 path.setAttribute("data-id", conn.id);
                 linksGroup.appendChild(path);
             }
             
             const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-            title.textContent = `Link: ${conn.link || 'Unnamed'}\nCapacity: ${conn.bitrate} Gbps\nType: ${conn.type || 'Interlink'}\nStatus: ${conn.status}\nFrom: ${conn.source} [${conn.source_interface || 'no-port'}]\nTo: ${conn.target} [${conn.target_interface || 'no-port'}]`;
+            let svgTooltip = `Link: ${conn.link || 'Unnamed'}\nCapacity: ${conn.bitrate} Gbps\nType: ${conn.type || 'Interlink'}\nStatus: ${conn.status}\nFrom: ${conn.source} [${conn.source_interface || 'no-port'}]\nTo: ${conn.target} [${conn.target_interface || 'no-port'}]`;
+            if (optInfo.tooltipLines.length > 0) {
+                svgTooltip += `\n` + optInfo.tooltipLines.join(`\n`);
+            }
+            title.textContent = svgTooltip;
             hoverPath.appendChild(title);
             
             const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
             labelGroup.setAttribute("class", `nms-link-label-group ${!isLinkMatch ? 'search-dimmed' : ''}`);
             labelGroup.setAttribute("data-id", conn.id);
+            labelGroup.style.pointerEvents = "all";
+            labelGroup.style.cursor = "pointer";
+            labelGroup.addEventListener("click", () => selectNmsConnection(conn.id));
             
             const midX = (sourceNode.x + targetNode.x) / 2.0 + nx * dist;
             const midY = (sourceNode.y + targetNode.y) / 2.0 + ny * dist;
             
             const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            rect.setAttribute("class", "nms-link-label-bg");
+            const bgNokClass = optInfo.worstSeverity === "alarm" ? "optical-nok-alarm-bg" : optInfo.worstSeverity === "warning" ? "optical-nok-warning-bg" : "";
+            rect.setAttribute("class", `nms-link-label-bg ${bgNokClass}`);
             
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            text.setAttribute("class", "nms-link-label-text");
+            const txtNokClass = optInfo.worstSeverity === "alarm" ? "optical-nok-alarm-text" : optInfo.worstSeverity === "warning" ? "optical-nok-warning-text" : "";
+            text.setAttribute("class", `nms-link-label-text ${txtNokClass}`);
             text.setAttribute("x", midX);
             text.setAttribute("y", midY);
-            text.textContent = `${bitrateVal}G`;
+            if (optInfo.isNok && optInfo.primaryHealth) {
+                text.textContent = `⚠ ${bitrateVal}G (${optInfo.primaryHealth.rxText.replace(' dBm', '')}dBm)`;
+            } else {
+                text.textContent = `${bitrateVal}G`;
+            }
             
             labelGroup.appendChild(rect);
             labelGroup.appendChild(text);
@@ -4331,15 +4591,41 @@ function showNmsConnectionDetailPanel(allConns, selectedConn) {
     if (container) {
         container.innerHTML = "";
         
-        connsList.forEach((c, index) => {
+        // Sort so the clicked connection (selectedConn) or NOK links appear first
+        const sortedList = [...connsList].sort((a, b) => {
+            if (selectedConn && a.id === selectedConn.id) return -1;
+            if (selectedConn && b.id === selectedConn.id) return 1;
+            const oa = getConnectionOpticalInfo(a);
+            const ob = getConnectionOpticalInfo(b);
+            if (oa.isNok && !ob.isNok) return -1;
+            if (!oa.isNok && ob.isNok) return 1;
+            return 0;
+        });
+
+        sortedList.forEach((c, index) => {
             const card = document.createElement("div");
             card.className = `nms-detail-conn-card`;
+            const optInfo = getConnectionOpticalInfo(c);
+            const isClickedConn = selectedConn && c.id === selectedConn.id && sortedList.length > 1;
             if (c.hidden) {
                 card.style.opacity = "0.55";
             }
+            if (optInfo.worstSeverity === "alarm") {
+                card.style.borderColor = "rgba(239, 68, 68, 0.6)";
+                card.style.boxShadow = "0 0 12px rgba(239, 68, 68, 0.15)";
+            } else if (optInfo.worstSeverity === "warning") {
+                card.style.borderColor = "rgba(249, 115, 22, 0.55)";
+            } else if (isClickedConn) {
+                card.style.borderColor = "rgba(59, 130, 246, 0.65)";
+            }
+
+            const opticalBoxesHtml = [
+                renderOpticalEndpointBox("Source", c.source, c.source_interface, optInfo.sourceOpt),
+                renderOpticalEndpointBox("Target", c.target, c.target_interface, optInfo.targetOpt)
+            ].filter(Boolean).join("");
             
             card.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center;">
+                <h4 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center; gap: 6px;">
                     <span>Link #${index + 1}: ${escapeHTML(c.link || 'Unnamed')}</span>
                     <span class="badge" style="font-size: 0.65rem; padding: 2px 6px; display: inline-block;">${escapeHTML(c.type || 'Interlink')}</span>
                 </h4>
@@ -4373,6 +4659,14 @@ function showNmsConnectionDetailPanel(allConns, selectedConn) {
                     <span class="detail-label">Multipath LAG:</span>
                     <span class="detail-val">${c.multipath_lag ? 'Yes' : 'No'}</span>
                 </div>
+                ${opticalBoxesHtml ? `
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px;">
+                            <i class="fa-solid fa-gauge-high" style="color: var(--primary); margin-right: 4px;"></i>Optical Power Telemetry (DDM)
+                        </div>
+                        ${opticalBoxesHtml}
+                    </div>
+                ` : ""}
                 <div style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px; justify-content: flex-end;">
                     <button class="btn btn-secondary btn-sm" onclick="sidebarToggleConnectionVisibility('${c.id}')" style="padding: 4px 10px; font-size: 0.7rem; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; border-radius: 4px;">
                         <i class="fa-regular ${c.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
@@ -4426,6 +4720,13 @@ function showNmsDetailPanel(dev) {
         
         Object.keys(peerGroups).forEach(peer => {
             const conns = peerGroups[peer];
+            const formatOptPill = (conn) => {
+                const oi = getConnectionOpticalInfo(conn);
+                if (!oi.primaryOpt || oi.primaryOpt.status !== "success") return "";
+                const h = oi.primaryHealth;
+                const bg = h.severity === "alarm" ? "rgba(239,68,68,0.2)" : h.severity === "warning" ? "rgba(249,115,22,0.2)" : "rgba(16,185,129,0.15)";
+                return ` <span onclick="event.stopPropagation(); selectNmsConnection('${conn.id}')" title="Click for optical details (${escapeHTML(h.statusText)})" style="display: inline-block; padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 0.68rem; font-weight: 700; background: ${bg}; color: ${h.color}; border: 1px solid ${h.color}; cursor: pointer;">${h.severity !== 'normal' ? '⚠ ' : ''}${escapeHTML(h.rxText)}</span>`;
+            };
             if (conns.length === 1) {
                 const c = conns[0];
                 const myPort = c.source === dev.name ? c.source_interface : c.target_interface;
@@ -4434,7 +4735,9 @@ function showNmsDetailPanel(dev) {
                 const iconClass = typeText === "Uplink" ? "fa-arrow-right" : "fa-arrow-right-arrow-left";
                 
                 const li = document.createElement("li");
-                li.innerHTML = `<i class="fa-solid ${iconClass}"></i> [${myPort || 'no-port'}] to <strong>${peer}</strong> [${peerPort || 'no-port'}] (${c.bitrate}G via ${c.link || 'Link'}, ${typeText})`;
+                li.style.cursor = "pointer";
+                li.onclick = () => selectNmsConnection(c.id);
+                li.innerHTML = `<i class="fa-solid ${iconClass}"></i> [${myPort || 'no-port'}] to <strong>${peer}</strong> [${peerPort || 'no-port'}] (${c.bitrate}G via ${c.link || 'Link'})${formatOptPill(c)}`;
                 connsList.appendChild(li);
             } else {
                 const totalCapacity = conns.reduce((sum, c) => sum + (parseInt(c.bitrate) || 0), 0);
@@ -4452,7 +4755,9 @@ function showNmsDetailPanel(dev) {
                     const peerPort = c.source === dev.name ? c.target_interface : c.source_interface;
                     const typeText = c.type || "Interlink";
                     const subLi = document.createElement("li");
-                    subLi.innerHTML = `[${myPort || 'no-port'}] to [${peerPort || 'no-port'}] (${c.bitrate}G via ${c.link || 'Link'}, ${typeText})`;
+                    subLi.style.cursor = "pointer";
+                    subLi.onclick = () => selectNmsConnection(c.id);
+                    subLi.innerHTML = `[${myPort || 'no-port'}] to [${peerPort || 'no-port'}] (${c.bitrate}G)${formatOptPill(c)}`;
                     subUl.appendChild(subLi);
                 });
                 
@@ -5235,9 +5540,24 @@ function markUnsavedChanges(hasChanges) {
 function updateNmsCounters() {
     const summary = document.getElementById("nms-status-summary");
     if (summary) {
-        summary.innerText = `${appState.nms.devices.length} Devices | ${appState.nms.connections.length} Links`;
+        let nokCount = 0;
+        (appState.nms.connections || []).forEach(c => {
+            if (!c.hidden && getConnectionOpticalInfo(c).isNok) nokCount++;
+        });
+        const nokHtml = nokCount > 0
+            ? ` | <span style="color: #fca5a5; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> ${nokCount} Optical NOK</span>`
+            : "";
+        summary.innerHTML = `${appState.nms.devices.length} Devices | ${appState.nms.connections.length} Links${nokHtml}`;
     }
 }
+
+function inspectOpticalNokConnection(connId) {
+    if (appState.nms.layoutMode === "summary") {
+        switchNmsLayout("geo");
+    }
+    selectNmsConnection(connId);
+}
+window.inspectOpticalNokConnection = inspectOpticalNokConnection;
 
 function escapeHTML(str) {
     if (!str) return "";
@@ -6264,6 +6584,87 @@ function updateNmsSummaryDashboard() {
                 <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 10px 14px; font-size: 0.78rem; color: var(--success); font-weight: 500; width: 100%; box-sizing: border-box;">
                     <i class="fa-solid fa-circle-check" style="font-size: 0.85rem;"></i>
                     <span>No SPOF vulnerabilities detected for selected criteria.</span>
+                </div>
+            `;
+        }
+    }
+
+    // 3. Optical Power Telemetry & NOK Connections Summary
+    const optScan = appState.nms.opticalScan || { updated_at: null, results: [] };
+    const optResults = Array.isArray(optScan.results) ? optScan.results : [];
+    let optNormalCount = 0;
+    let optWarnCount = 0;
+    let optAlarmCount = 0;
+
+    optResults.forEach(r => {
+        const h = evaluatePortOpticalHealth(r);
+        if (h.severity === "normal") optNormalCount++;
+        else if (h.severity === "warning") optWarnCount++;
+        else if (h.severity === "alarm") optAlarmCount++;
+    });
+
+    const optTsEl = document.getElementById("dash-optical-timestamp");
+    const optTotalEl = document.getElementById("dash-opt-total");
+    const optNormalEl = document.getElementById("dash-opt-normal");
+    const optWarnEl = document.getElementById("dash-opt-warning");
+    const optAlarmEl = document.getElementById("dash-opt-alarm");
+    const optNokListEl = document.getElementById("dash-opt-nok-list");
+
+    if (optTsEl) optTsEl.innerText = optScan.updated_at ? `Last Scan: ${optScan.updated_at}` : "Last Scan: Not available";
+    if (optTotalEl) optTotalEl.innerText = optResults.length;
+    if (optNormalEl) optNormalEl.innerText = optNormalCount;
+    if (optWarnEl) optWarnEl.innerText = optWarnCount;
+    if (optAlarmEl) optAlarmEl.innerText = optAlarmCount;
+
+    if (optNokListEl) {
+        const nokConnections = [];
+        conns.forEach(c => {
+            const info = getConnectionOpticalInfo(c);
+            if (info.isNok) {
+                nokConnections.push({ conn: c, info });
+            }
+        });
+
+        nokConnections.sort((a, b) => {
+            if (a.info.worstSeverity === "alarm" && b.info.worstSeverity !== "alarm") return -1;
+            if (a.info.worstSeverity !== "alarm" && b.info.worstSeverity === "alarm") return 1;
+            return 0;
+        });
+
+        if (nokConnections.length > 0) {
+            optNokListEl.innerHTML = nokConnections.map(({ conn, info }) => {
+                const isAlarm = info.worstSeverity === "alarm";
+                const col = isAlarm ? "#ef4444" : "#f97316";
+                const bg = isAlarm ? "rgba(239, 68, 68, 0.06)" : "rgba(249, 115, 22, 0.06)";
+                const border = isAlarm ? "rgba(239, 68, 68, 0.25)" : "rgba(249, 115, 22, 0.25)";
+                const h = info.primaryHealth;
+                return `
+                    <div onclick="inspectOpticalNokConnection('${conn.id}')"
+                         style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${bg}; border: 1px solid ${border}; border-radius: 6px; padding: 10px 14px; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;"
+                         onmouseover="this.style.borderColor='${col}'"
+                         onmouseout="this.style.borderColor='${border}'">
+                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                            <span style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-triangle-exclamation" style="color: ${col};"></i>
+                                ${escapeHTML(conn.source)} <span style="color: var(--text-muted); font-weight: 400;">[${escapeHTML(conn.source_interface)}]</span>
+                                ↔ ${escapeHTML(conn.target)}
+                            </span>
+                            <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">
+                                Link: ${escapeHTML(conn.link || 'Unnamed')} • ${conn.bitrate}G
+                            </span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0;">
+                            <span style="font-family: monospace; font-weight: 800; color: ${col}; font-size: 0.85rem;">${escapeHTML(h.rxText)}</span>
+                            <span class="badge" style="font-size: 0.62rem; padding: 1px 6px; background: ${bg}; color: ${col}; border: 1px solid ${border};">${escapeHTML(h.statusText)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        } else {
+            optNokListEl.innerHTML = `
+                <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 10px 14px; font-size: 0.78rem; color: var(--success); font-weight: 500;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>All scanned optical links are operating within normal DDM power thresholds.</span>
                 </div>
             `;
         }
@@ -7876,6 +8277,7 @@ async function initConsoleView() {
             });
             if (res.ok) {
                 const data = await res.json();
+                await syncNmsOpticalScanData();
                 if (opticalTimestampEl && data.updated_at) {
                     opticalTimestampEl.innerText = `Saved: ${data.updated_at}`;
                     opticalTimestampEl.classList.remove("hidden");

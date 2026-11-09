@@ -620,6 +620,46 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Optical Power Telemetry & NOK Connections Summary Card -->
+                                <div class="dashboard-card" style="background: rgba(15, 23, 42, 0.45); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-bolt" style="color: #f59e0b; font-size: 1.1rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Optical Power Telemetry & NOK Link Analysis</h4>
+                                        </div>
+                                        <span id="dash-optical-timestamp" style="font-size: 0.72rem; color: #10b981; font-family: monospace; background: rgba(16, 185, 129, 0.1); padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);">Last Scan: -</span>
+                                    </div>
+
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px;">
+                                        <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Scanned Ports</div>
+                                            <div id="dash-opt-total" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(16, 185, 129, 0.05); padding: 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.18);">
+                                            <div style="font-size: 0.7rem; color: #10b981; text-transform: uppercase; font-weight: 600;">Normal (OK)</div>
+                                            <div id="dash-opt-normal" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #10b981; margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(249, 115, 22, 0.06); padding: 12px; border-radius: 6px; border: 1px solid rgba(249, 115, 22, 0.22);">
+                                            <div style="font-size: 0.7rem; color: #f97316; text-transform: uppercase; font-weight: 600;">Warning (Low/High)</div>
+                                            <div id="dash-opt-warning" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #f97316; margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(239, 68, 68, 0.06); padding: 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                                            <div style="font-size: 0.7rem; color: #ef4444; text-transform: uppercase; font-weight: 600;">Alarm (Critical NOK)</div>
+                                            <div id="dash-opt-alarm" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #ef4444; margin-top: 2px;">0</div>
+                                        </div>
+                                    </div>
+
+                                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+                                        <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+                                            <span>NOK Optical Connections (Click any row to inspect on Topology Map)</span>
+                                        </div>
+                                        <div id="dash-opt-nok-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
+                                            <!-- Populated dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -673,6 +713,10 @@
                                     <label class="control-checkbox-label" style="margin-top: 6px;">
                                         <input type="checkbox" id="nms-show-olts" checked style="accent-color: hsl(280, 80%, 60%); cursor: pointer;" />
                                         <span style="font-family: 'Inter', sans-serif;">OLTs</span>
+                                    </label>
+                                    <label class="control-checkbox-label" style="margin-top: 6px;">
+                                        <input type="checkbox" id="nms-only-optical-nok" style="accent-color: #ef4444; cursor: pointer;" />
+                                        <span style="font-family: 'Inter', sans-serif; color: #fca5a5;">Only NOK Optical</span>
                                     </label>
                                 </div>
                             </div>
@@ -743,6 +787,19 @@
                                         <div class="legend-item">
                                             <span class="legend-line line-aggregated"></span>
                                             <span>Aggregated</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 10px; margin-top: 5px;">
+                                    <div class="legend-section">
+                                        <h4>Optical Power Health (Rx)</h4>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-optical-alarm"></span>
+                                            <span style="color: #fca5a5; font-weight: 600;">NOK Alarm (Low/High Alarm)</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span class="legend-line line-optical-warning"></span>
+                                            <span style="color: #fdba74; font-weight: 600;">NOK Warning (Low/High Warn)</span>
                                         </div>
                                     </div>
                                 </div>

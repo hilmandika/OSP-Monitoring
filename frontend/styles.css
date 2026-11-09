@@ -3341,3 +3341,111 @@ body.light-mode .nms-controls-content {
     }
 }
 
+/* ==========================================================================
+   Optical Power NOK Indicators on Topology Lines (Logical SVG & Geographic Map)
+   ========================================================================== */
+@keyframes pulse-optical-alarm {
+    0%, 100% {
+        filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.95));
+        stroke-opacity: 1;
+    }
+    50% {
+        filter: drop-shadow(0 0 14px rgba(239, 68, 68, 1));
+        stroke-opacity: 0.82;
+    }
+}
+
+.nms-link-line.optical-nok-alarm,
+.nms-link-line.dual-track-line.optical-nok-alarm {
+    stroke: #ef4444 !important;
+    stroke-width: 4.5px !important;
+    animation: pulse-optical-alarm 1.8s infinite ease-in-out !important;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.9)) !important;
+}
+
+.nms-link-line.optical-nok-warning,
+.nms-link-line.dual-track-line.optical-nok-warning {
+    stroke: #f97316 !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 7px rgba(249, 115, 22, 0.85)) !important;
+}
+
+.nms-link-label-bg.optical-nok-alarm-bg {
+    fill: #450a0a !important;
+    stroke: #ef4444 !important;
+    stroke-width: 1.5px !important;
+}
+
+.nms-link-label-bg.optical-nok-warning-bg {
+    fill: #431407 !important;
+    stroke: #f97316 !important;
+    stroke-width: 1.5px !important;
+}
+
+.nms-link-label-text.optical-nok-alarm-text {
+    fill: #fecaca !important;
+    font-weight: 700 !important;
+    font-size: 9.5px !important;
+}
+
+.nms-link-label-text.optical-nok-warning-text {
+    fill: #fed7aa !important;
+    font-weight: 700 !important;
+    font-size: 9.5px !important;
+}
+
+.leaflet-interactive.map-optical-alarm {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.95));
+}
+
+.leaflet-interactive.map-optical-warning {
+    filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.85));
+}
+
+.nms-map-optical-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease;
+}
+
+.nms-map-optical-badge:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.nms-map-optical-badge.alarm {
+    background: rgba(69, 10, 10, 0.95);
+    border: 1.5px solid #ef4444;
+    color: #fecaca;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.75);
+}
+
+.nms-map-optical-badge.warning {
+    background: rgba(67, 20, 7, 0.95);
+    border: 1.5px solid #f97316;
+    color: #fed7aa;
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.65);
+}
+
+.legend-line.line-optical-alarm {
+    background: #ef4444;
+    height: 4px;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+}
+
+.legend-line.line-optical-warning {
+    background: #f97316;
+    height: 3.5px;
+    box-shadow: 0 0 6px rgba(249, 115, 22, 0.85);
+}
+
+
