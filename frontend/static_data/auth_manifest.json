@@ -4,17 +4,17 @@
   "users": [
     {
       "username": "admin",
-      "salt": "jm5HGRZrDrVBRwJ8CmS5YA==",
+      "salt": "ayd/4DdnBRPxJr4y2jZ52g==",
       "iterations": 100000,
-      "iv": "DhZQAFBQNki0xX4H",
-      "wrapped_key": "G5Z2KnzAHkWdKYfmD95vO86nlsdfbu5Ghc06DsRehIOjDyC7RbdQZdqVKTxvMDo6"
+      "iv": "xprfX7qxudjB6bE2",
+      "wrapped_key": "dcqCXy40b7QDpHs1vyxoHZ6QSYvF9fVLhXzcFZ39/YJsB3Do+Lt/lcpgMEHaotI8"
     },
     {
       "username": "hilman",
-      "salt": "oZB0/NGwQuKbBqUCu2y36g==",
+      "salt": "v+UW8NgMBwLHnue6+IJOgQ==",
       "iterations": 100000,
-      "iv": "/MgtEA7Kmsbipwga",
-      "wrapped_key": "EfzaD5kGqjTnLPnQ/ppENZViwXOwESLIHGkYaCH04E93U1hs5p84vnKQVnAFcDsX"
+      "iv": "6Wd5U4j3Omoqt/lR",
+      "wrapped_key": "58ypljR591HIt6R+q9y/HDSTXbMju2y3FMETv2ZoCXRn2nIuBuRHwOlaFNg60UqE"
     }
   ]
 }

@@ -309,6 +309,45 @@ async function enableStaticPresentationMode() {
     if (publishBtn) publishBtn.classList.add("hidden");
     if (pagesAuthBtn) pagesAuthBtn.classList.add("hidden");
     if (scannerBar) scannerBar.classList.add("hidden");
+
+    // Transform the Console tab into a clean "Optical Power Report" view on GitHub Pages
+    const navConsoleBtn = document.getElementById("nav-console-btn");
+    const consoleViewTitle = document.getElementById("console-view-title");
+    const consoleViewDesc = document.getElementById("console-view-desc");
+    const jbUpperRow = document.getElementById("console-jb-upper-row");
+    const leftPanel = document.getElementById("console-left-panel");
+    const termHeader = document.getElementById("console-terminal-header");
+    const termScreen = document.getElementById("console-terminal-screen");
+    const termInputRow = document.getElementById("console-input-row");
+    const closeDiagBtn = document.getElementById("console-close-diagnostics-btn");
+    const diagCardEl = document.getElementById("console-diagnostics-card");
+    const diagTableWrap = document.getElementById("console-diagnostics-table-wrapper");
+
+    if (navConsoleBtn) {
+        navConsoleBtn.innerHTML = '<i class="fa-solid fa-square-poll-horizontal"></i> <span>Optical Power Report</span>';
+    }
+    if (consoleViewTitle) {
+        consoleViewTitle.innerHTML = '<i class="fa-solid fa-square-poll-horizontal"></i> Optical Power Report';
+    }
+    if (consoleViewDesc) {
+        consoleViewDesc.innerText = "Snapshot of router connection optical transceiver Rx power levels and DDM thresholds.";
+    }
+    if (jbUpperRow) jbUpperRow.style.display = "none";
+    if (leftPanel) leftPanel.style.display = "none";
+    if (termHeader) termHeader.style.display = "none";
+    if (termScreen) termScreen.style.display = "none";
+    if (termInputRow) termInputRow.style.display = "none";
+    if (closeDiagBtn) closeDiagBtn.style.display = "none";
+    if (diagCardEl) {
+        diagCardEl.classList.remove("hidden");
+        diagCardEl.style.maxHeight = "none";
+        diagCardEl.style.flex = "1";
+        diagCardEl.style.borderTop = "none";
+    }
+    if (diagTableWrap) {
+        diagTableWrap.style.maxHeight = "none";
+        diagTableWrap.style.flex = "1";
+    }
     if (staticBadge) {
         staticBadge.classList.remove("hidden");
         try {
@@ -7918,6 +7957,16 @@ async function initConsoleView() {
                     if (autoOpen || appState.isStaticMode) {
                         renderSavedOpticalScan(scanData);
                     }
+                } else if (appState.isStaticMode && diagCard && diagTbody) {
+                    diagCard.classList.remove("hidden");
+                    diagTbody.innerHTML = `
+                        <tr>
+                            <td colspan="9" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                                <i class="fa-solid fa-circle-info" style="margin-right: 6px; color: var(--primary);"></i>
+                                No optical power scan results have been published yet. Run <strong>Scan All Routers</strong> from the local collector app and click <strong>Publish to GitHub</strong>.
+                            </td>
+                        </tr>
+                    `;
                 }
             }
         } catch (err) {
