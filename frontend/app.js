@@ -2334,7 +2334,14 @@ function setupNmsEventListeners() {
     const showRoutersCheck = document.getElementById("nms-show-routers");
     const showOltsCheck = document.getElementById("nms-show-olts");
     const onlyOpticalNokCheck = document.getElementById("nms-only-optical-nok");
+    const opticalNokBtn = document.getElementById("nms-optical-nok-btn");
+    const syncOpticalNokBtnState = () => {
+        if (opticalNokBtn && onlyOpticalNokCheck) {
+            opticalNokBtn.classList.toggle("active", onlyOpticalNokCheck.checked);
+        }
+    };
     const handleFilterChange = () => {
+        syncOpticalNokBtnState();
         renderNmsSpreadsheet();
         if (appState.nms.layoutMode === "geo") {
             renderNmsLeafletMap();
@@ -2345,6 +2352,16 @@ function setupNmsEventListeners() {
     if (showRoutersCheck) showRoutersCheck.addEventListener("change", handleFilterChange);
     if (showOltsCheck) showOltsCheck.addEventListener("change", handleFilterChange);
     if (onlyOpticalNokCheck) onlyOpticalNokCheck.addEventListener("change", handleFilterChange);
+    if (opticalNokBtn && onlyOpticalNokCheck) {
+        opticalNokBtn.addEventListener("click", () => {
+            onlyOpticalNokCheck.checked = !onlyOpticalNokCheck.checked;
+            // If currently on Summary tab, switch to Geographic Map to show the filtered NOK links immediately
+            if (onlyOpticalNokCheck.checked && appState.nms.layoutMode === "summary") {
+                switchNmsLayout("geo");
+            }
+            handleFilterChange();
+        });
+    }
     
     // Bind SVG Mouse Zoom and Pan Event Listeners
     setupNmsCanvasInteractions();
@@ -2688,6 +2705,45 @@ function getConnectionOpticalInfo(conn) {
     };
 }
 
+function buildCleanLinkTooltipHtml(conn, optInfo) {
+    const srcPort = conn.source_interface || "-";
+    const tgtPort = conn.target_interface || "-";
+    const cap = `${conn.bitrate || 10}G ${conn.type || "Interlink"}`;
+    const statusDotColor = conn.status === "Active" ? "#10b981" : "#94a3b8";
+
+    let optRowHtml = "";
+    if (optInfo && optInfo.primaryOpt) {
+        const h = optInfo.primaryHealth;
+        const opt = optInfo.primaryOpt;
+        const limitText = (opt.status === "success" && opt.lowWarn !== undefined && opt.lowAlarm !== undefined)
+            ? `<div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">Threshold: Warn ${Number(opt.lowWarn).toFixed(1)} / Alarm ${Number(opt.lowAlarm).toFixed(1)} dBm</div>`
+            : "";
+        optRowHtml = `
+            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                    <span style="color: var(--text-muted); font-size: 0.72rem;">Optical Rx (${escapeHTML(optInfo.primaryPort)}):</span>
+                    <strong style="color: ${h.color}; font-family: monospace; font-size: 0.78rem;">${escapeHTML(h.rxText)} (${escapeHTML(h.statusText)})</strong>
+                </div>
+                ${limitText}
+            </div>
+        `;
+    }
+
+    return `
+        <div style="display: flex; flex-direction: column; gap: 3px; min-width: 210px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <span style="font-weight: 700; color: #f8fafc; font-size: 0.8rem;">${escapeHTML(conn.source)} ↔ ${escapeHTML(conn.target)}</span>
+                <span style="font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 600;">${escapeHTML(cap)}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.72rem; color: #94a3b8; font-family: monospace;">
+                <span>${escapeHTML(srcPort)} → ${escapeHTML(tgtPort)}</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-family: 'Inter', sans-serif;"><span style="width: 6px; height: 6px; border-radius: 50%; background: ${statusDotColor};"></span>${escapeHTML(conn.status || "Active")}</span>
+            </div>
+            ${optRowHtml}
+        </div>
+    `;
+}
+
 function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
     if (!optItem) return "";
     const health = evaluatePortOpticalHealth(optItem);
@@ -2700,80 +2756,34 @@ function renderOpticalEndpointBox(roleLabel, deviceName, portName, optItem) {
 
     if (optItem.status !== "success") {
         return `
-            <div style="margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); font-size: 0.72rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: 600; color: var(--text-main);"><i class="fa-solid fa-bolt" style="color: var(--text-muted); margin-right: 4px;"></i>${escapeHTML(deviceName)} [${escapeHTML(portName)}]</span>
-                    <span class="badge" style="font-size: 0.62rem; padding: 2px 6px; background: rgba(255,255,255,0.06); color: var(--text-muted);">${escapeHTML(health.statusText)}</span>
-                </div>
+            <div style="margin-top: 6px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); font-size: 0.74rem; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: var(--text-main); font-family: monospace;">${escapeHTML(deviceName)} [${escapeHTML(portName)}]</span>
+                <span class="badge" style="font-size: 0.64rem; padding: 2px 6px; background: rgba(255,255,255,0.06); color: var(--text-muted);">${escapeHTML(health.statusText)}</span>
             </div>
         `;
     }
 
-    const lowA = Number(optItem.lowAlarm ?? -20);
-    const lowW = Number(optItem.lowWarn ?? -16);
-    const highW = Number(optItem.highWarn ?? 0);
-    const highA = Number(optItem.highAlarm ?? 2);
-    const val = Number(optItem.value ?? 0);
-
-    // Compute normalized position [0..100%] on range [lowA - 4, highA + 2]
-    const minBound = lowA - 4;
-    const maxBound = highA + 2;
-    const span = Math.max(1, maxBound - minBound);
-    const clampPct = (v) => Math.max(2, Math.min(98, ((v - minBound) / span) * 100));
-
-    const lowAPct = clampPct(lowA);
-    const lowWPct = clampPct(lowW);
-    const highWPct = clampPct(highW);
-    const highAPct = clampPct(highA);
-    const valPct = clampPct(val);
+    const lowA = Number(optItem.lowAlarm ?? -20).toFixed(1);
+    const lowW = Number(optItem.lowWarn ?? -16).toFixed(1);
 
     return `
-        <div style="margin-top: 8px; padding: 10px; border-radius: 6px; background: ${bgCol}; border: 1px solid ${borderCol}; display: flex; flex-direction: column; gap: 7px;">
+        <div style="margin-top: 6px; padding: 9px 11px; border-radius: 6px; background: ${bgCol}; border: 1px solid ${borderCol}; display: flex; flex-direction: column; gap: 5px;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
-                    <i class="fa-solid ${isAlarm || isWarn ? 'fa-triangle-exclamation' : 'fa-bolt'}" style="color: ${health.color}; margin-right: 4px;"></i>${escapeHTML(deviceName)} [${escapeHTML(portName)}]
+                <span style="font-size: 0.74rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
+                    ${escapeHTML(deviceName)} [${escapeHTML(portName)}]
                 </span>
-                <span class="badge" style="font-size: 0.64rem; padding: 2px 7px; background: ${badgeBg}; color: ${health.color}; border: 1px solid ${borderCol}; font-weight: 700;">
+                <span class="badge" style="font-size: 0.64rem; padding: 2px 7px; background: ${badgeBg}; color: ${health.color}; border: 1px solid ${borderCol}; font-weight: 700; white-space: nowrap;">
                     ${escapeHTML(health.statusText)}
                 </span>
             </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                <span style="font-size: 0.7rem; color: var(--text-muted);">Measured Rx Power:</span>
-                <span style="font-size: 1rem; font-weight: 800; font-family: monospace; color: ${health.color};">${escapeHTML(health.rxText)}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.72rem; color: var(--text-muted);">Rx Power:</span>
+                <span style="font-size: 0.92rem; font-weight: 800; font-family: monospace; color: ${health.color};">${escapeHTML(health.rxText)}</span>
             </div>
-
-            <!-- Visual DDM Threshold Meter -->
-            <div style="position: relative; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.45); overflow: visible; margin: 4px 0;">
-                <div style="position: absolute; inset: 0; border-radius: 4px; overflow: hidden; display: flex;">
-                    <div style="width: ${lowAPct}%; background: rgba(239, 68, 68, 0.55);" title="Low Alarm Zone"></div>
-                    <div style="width: ${Math.max(0, lowWPct - lowAPct)}%; background: rgba(249, 115, 22, 0.55);" title="Low Warning Zone"></div>
-                    <div style="width: ${Math.max(0, highWPct - lowWPct)}%; background: rgba(16, 185, 129, 0.55);" title="Normal Operating Zone"></div>
-                    <div style="width: ${Math.max(0, highAPct - highWPct)}%; background: rgba(249, 115, 22, 0.55);" title="High Warning Zone"></div>
-                    <div style="flex: 1; background: rgba(239, 68, 68, 0.55);" title="High Alarm Zone"></div>
-                </div>
-                <div style="position: absolute; left: ${valPct}%; top: -3px; width: 6px; height: 14px; border-radius: 3px; background: #ffffff; border: 1.5px solid ${health.color}; box-shadow: 0 0 6px ${health.color}; transform: translateX(-50%);" title="Rx: ${escapeHTML(health.rxText)}"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: var(--text-muted); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 4px;">
+                <span>Threshold:</span>
+                <span style="font-family: monospace;">Warn ${lowW} | Alarm ${lowA} dBm</span>
             </div>
-
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; font-family: monospace; font-size: 0.64rem; background: rgba(0,0,0,0.25); padding: 5px 4px; border-radius: 4px;">
-                <div>
-                    <div style="color: #fca5a5; font-size: 0.58rem;">Low Alm</div>
-                    <div style="color: var(--text-main); font-weight: 600;">${lowA.toFixed(1)}</div>
-                </div>
-                <div>
-                    <div style="color: #fdba74; font-size: 0.58rem;">Low Wrn</div>
-                    <div style="color: var(--text-main); font-weight: 600;">${lowW.toFixed(1)}</div>
-                </div>
-                <div>
-                    <div style="color: #fdba74; font-size: 0.58rem;">High Wrn</div>
-                    <div style="color: var(--text-main); font-weight: 600;">${highW.toFixed(1)}</div>
-                </div>
-                <div>
-                    <div style="color: #fca5a5; font-size: 0.58rem;">High Alm</div>
-                    <div style="color: var(--text-main); font-weight: 600;">${highA.toFixed(1)}</div>
-                </div>
-            </div>
-            ${optItem.toolTip ? `<div style="font-size: 0.65rem; font-family: monospace; color: var(--text-muted); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 4px;">${escapeHTML(optItem.toolTip)}</div>` : ""}
         </div>
     `;
 }
@@ -2928,6 +2938,16 @@ function renderNmsLeafletMap() {
     
     // Group devices by geographic coordinate
     const filters = getVisibilityFilters();
+    const nokDeviceNames = new Set();
+    if (filters.onlyOpticalNok) {
+        appState.nms.connections.forEach(c => {
+            if (!c.hidden && getConnectionOpticalInfo(c).isNok) {
+                nokDeviceNames.add(c.source);
+                nokDeviceNames.add(c.target);
+            }
+        });
+    }
+
     const coordsMap = {};
     const validDevs = appState.nms.devices.filter(d => 
         !d.hidden &&
@@ -3006,12 +3026,6 @@ function renderNmsLeafletMap() {
         // Skip loopback line if co-located
         if (sLoc[0] === tLoc[0] && sLoc[1] === tLoc[1]) return;
         
-        const totalCapacity = conns.reduce((sum, c) => sum + (parseInt(c.bitrate) || 0), 0);
-        const isInterlink = conns.some(c => c.type === "Interlink");
-        const aggregateType = isInterlink ? "Interlink" : "Uplink";
-        const isActive = conns.some(c => c.status === "Active");
-        const aggregateStatus = isActive ? "Active" : "Backup";
-        
         let isLinkMatch = true;
         if (query) {
             isLinkMatch = conns.some(c => 
@@ -3042,7 +3056,11 @@ function renderNmsLeafletMap() {
             const dist = (index - (n - 1) / 2.0) * spacing;
             const isConnSelected = conn.id === appState.nms.selectedConnectionId;
             const optInfo = getConnectionOpticalInfo(conn);
-            const connMatchesFilter = isLinkMatch && (!filters.onlyOpticalNok || optInfo.isNok);
+
+            // When "Optical NOK Only" is toggled on, completely hide non-NOK links
+            if (filters.onlyOpticalNok && !optInfo.isNok) return;
+
+            const connMatchesFilter = isLinkMatch;
             
             const bitrateVal = parseInt(conn.bitrate) || 10;
             let color = "#10b981";
@@ -3068,11 +3086,7 @@ function renderNmsLeafletMap() {
                 optClass = "map-optical-warning";
             }
             
-            let tooltipText = `Link: ${conn.link || 'Unnamed'}\nCapacity: ${conn.bitrate} Gbps\nType: ${conn.type || 'Interlink'}\nStatus: ${conn.status}\nPorts: ${conn.source} [${conn.source_interface || 'no-port'}] ↔ ${conn.target} [${conn.target_interface || 'no-port'}]`;
-            if (optInfo.tooltipLines.length > 0) {
-                tooltipText += `\n` + optInfo.tooltipLines.join(`\n`);
-            }
-            
+            const tooltipHtml = buildCleanLinkTooltipHtml(conn, optInfo);
             const lineClass = [isConnSelected ? "map-selected-line" : "", optClass].filter(Boolean).join(" ");
             
             if (conn.dual_track) {
@@ -3102,8 +3116,8 @@ function renderNmsLeafletMap() {
                 }).addTo(appState.nms.mapLayers);
                 
                 const onClick = () => selectNmsConnection(conn.id);
-                line1.bindTooltip(tooltipText, { sticky: true });
-                line2.bindTooltip(tooltipText, { sticky: true });
+                line1.bindTooltip(tooltipHtml, { sticky: true });
+                line2.bindTooltip(tooltipHtml, { sticky: true });
                 line1.on("click", onClick);
                 line2.on("click", onClick);
             } else {
@@ -3118,7 +3132,7 @@ function renderNmsLeafletMap() {
                     className: lineClass
                 }).addTo(appState.nms.mapLayers);
                 
-                polyline.bindTooltip(tooltipText, { sticky: true });
+                polyline.bindTooltip(tooltipHtml, { sticky: true });
                 polyline.on("click", () => selectNmsConnection(conn.id));
             }
 
@@ -3127,11 +3141,11 @@ function renderNmsLeafletMap() {
                 const midLng = (lng1 + lng2) / 2.0 + ny * dist;
                 const badgeIcon = L.divIcon({
                     className: "",
-                    html: `<div class="nms-map-optical-badge ${optInfo.worstSeverity}" title="Click to inspect optical power details"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(optInfo.primaryHealth.rxText)}</div>`,
+                    html: `<div class="nms-map-optical-badge ${optInfo.worstSeverity}"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(optInfo.primaryHealth.rxText)}</div>`,
                     iconSize: [0, 0]
                 });
                 const badgeMarker = L.marker([midLat, midLng], { icon: badgeIcon, zIndexOffset: 900 }).addTo(appState.nms.mapLayers);
-                badgeMarker.bindTooltip(tooltipText, { direction: "top" });
+                badgeMarker.bindTooltip(tooltipHtml, { direction: "top", offset: [0, -10] });
                 badgeMarker.on("click", () => selectNmsConnection(conn.id));
             }
         });
@@ -3139,6 +3153,9 @@ function renderNmsLeafletMap() {
     
     // Render markers (One marker per coordinate cluster)
     primaries.forEach(p => {
+        if (filters.onlyOpticalNok && !p.group.some(d => nokDeviceNames.has(d.name))) {
+            return;
+        }
         const dev = p.displayDev;
         const targetDev = p.primary;
         const loc = [p.lat, p.lng];
@@ -4003,8 +4020,9 @@ function renderNmsGraph() {
                               (conn.source_interface && conn.source_interface.toLowerCase().includes(query)) ||
                               (conn.target_interface && conn.target_interface.toLowerCase().includes(query));
             }
+            // When "Optical NOK Only" is toggled on, completely hide non-NOK links
             if (filters.onlyOpticalNok && !optInfo.isNok) {
-                isLinkMatch = false;
+                return;
             }
             const getBezierPathD = (x1, y1, x2, y2, connId) => {
                 const algoSelect = document.getElementById("nms-arrange-algorithm");
@@ -4112,6 +4130,15 @@ function renderNmsGraph() {
         });
     });   
     // 2. Draw Devices Nodes
+    const nokDeviceNames = new Set();
+    if (getVisibilityFilters().onlyOpticalNok) {
+        appState.nms.connections.forEach(c => {
+            if (!c.hidden && getConnectionOpticalInfo(c).isNok) {
+                nokDeviceNames.add(c.source);
+                nokDeviceNames.add(c.target);
+            }
+        });
+    }
     const sortedDevices = [...appState.nms.devices].sort((a, b) => {
         if (a.type === "Router" && b.type !== "Router") return 1;
         if (a.type !== "Router" && b.type === "Router") return -1;
@@ -4123,6 +4150,7 @@ function renderNmsGraph() {
         const filters = getVisibilityFilters();
         const isVisible = (dev.type === "Router" && filters.showRouters) || (dev.type === "OLT" && filters.showOlts);
         if (!isVisible) return;
+        if (filters.onlyOpticalNok && !nokDeviceNames.has(dev.name)) return;
         
         let isNodeMatch = true;
         if (query) {
@@ -4624,51 +4652,49 @@ function showNmsConnectionDetailPanel(allConns, selectedConn) {
                 renderOpticalEndpointBox("Target", c.target, c.target_interface, optInfo.targetOpt)
             ].filter(Boolean).join("");
             
+            const extraTags = [
+                c.dual_track ? "Dual-Track" : "",
+                c.multipath_lag ? "Multipath LAG" : ""
+            ].filter(Boolean);
+
             card.innerHTML = `
-                <h4 style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                    <span>Link #${index + 1}: ${escapeHTML(c.link || 'Unnamed')}</span>
-                    <span class="badge" style="font-size: 0.65rem; padding: 2px 6px; display: inline-block;">${escapeHTML(c.type || 'Interlink')}</span>
-                </h4>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Status:</span>
-                    <span class="detail-val">
-                        <span class="status-indicator ${c.status === 'Active' ? 'online' : 'offline'}"></span> ${c.status}
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                    <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">
+                        ${connsList.length > 1 ? `Link #${index + 1}` : escapeHTML(c.source + ' ↔ ' + c.target)}
                     </span>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="badge" style="font-size: 0.64rem; padding: 2px 6px;">${c.bitrate || 10}G ${escapeHTML(c.type || 'Interlink')}</span>
+                        <span style="font-size: 0.68rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+                            <span class="status-indicator ${c.status === 'Active' ? 'online' : 'offline'}" style="margin: 0;"></span>${escapeHTML(c.status || 'Active')}
+                        </span>
+                    </div>
                 </div>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Capacity:</span>
-                    <span class="detail-val">${c.bitrate} Gbps</span>
-                </div>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Source:</span>
-                    <span class="detail-val" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
-                        ${escapeHTML(c.source)} [${escapeHTML(c.source_interface || 'no-port')}]${c.source_lag ? ` (LAG: ${escapeHTML(c.source_lag)})` : ''}
-                    </span>
-                </div>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Target:</span>
-                    <span class="detail-val" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
-                        ${escapeHTML(c.target)} [${escapeHTML(c.target_interface || 'no-port')}]${c.target_lag ? ` (LAG: ${escapeHTML(c.target_lag)})` : ''}
-                    </span>
-                </div>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Dual-Track Port:</span>
-                    <span class="detail-val">${c.dual_track ? 'Yes' : 'No'}</span>
-                </div>
-                <div class="detail-row" style="margin-bottom: 4px;">
-                    <span class="detail-label">Multipath LAG:</span>
-                    <span class="detail-val">${c.multipath_lag ? 'Yes' : 'No'}</span>
+                <div style="display: flex; flex-direction: column; gap: 5px; font-size: 0.74rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <span style="color: var(--text-muted);">Source:</span>
+                        <span style="font-family: monospace; font-weight: 600; color: var(--text-main); text-align: right;">${escapeHTML(c.source)} [${escapeHTML(c.source_interface || '-')}]${c.source_lag ? ` (${escapeHTML(c.source_lag)})` : ''}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <span style="color: var(--text-muted);">Target:</span>
+                        <span style="font-family: monospace; font-weight: 600; color: var(--text-main); text-align: right;">${escapeHTML(c.target)} [${escapeHTML(c.target_interface || '-')}]${c.target_lag ? ` (${escapeHTML(c.target_lag)})` : ''}</span>
+                    </div>
+                    ${extraTags.length > 0 ? `
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <span style="color: var(--text-muted);">Attributes:</span>
+                            <span style="font-size: 0.68rem; color: #cbd5e1;">${escapeHTML(extraTags.join(' • '))}</span>
+                        </div>
+                    ` : ''}
                 </div>
                 ${opticalBoxesHtml ? `
                     <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
-                        <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px;">
-                            <i class="fa-solid fa-gauge-high" style="color: var(--primary); margin-right: 4px;"></i>Optical Power Telemetry (DDM)
+                        <div style="font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 2px;">
+                            <i class="fa-solid fa-bolt" style="color: #f59e0b; margin-right: 4px;"></i>Optical Power
                         </div>
                         ${opticalBoxesHtml}
                     </div>
                 ` : ""}
-                <div style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px; justify-content: flex-end;">
-                    <button class="btn btn-secondary btn-sm" onclick="sidebarToggleConnectionVisibility('${c.id}')" style="padding: 4px 10px; font-size: 0.7rem; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; border-radius: 4px;">
+                <div style="display: flex; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); justify-content: flex-end;">
+                    <button class="btn btn-secondary btn-sm" onclick="sidebarToggleConnectionVisibility('${c.id}')" style="padding: 3px 8px; font-size: 0.68rem; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; border-radius: 4px;">
                         <i class="fa-regular ${c.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
                         <span>${c.hidden ? 'Unhide' : 'Hide'}</span>
                     </button>
@@ -4924,7 +4950,8 @@ function renderNmsSpreadsheet() {
         );
         
         let filteredConns = appState.nms.connections.filter(c => 
-            visibleDeviceNames.has(c.source) && visibleDeviceNames.has(c.target)
+            visibleDeviceNames.has(c.source) && visibleDeviceNames.has(c.target) &&
+            (!filters.onlyOpticalNok || getConnectionOpticalInfo(c).isNok)
         );
         
         if (query) {
@@ -5539,15 +5566,16 @@ function markUnsavedChanges(hasChanges) {
 
 function updateNmsCounters() {
     const summary = document.getElementById("nms-status-summary");
+    let nokCount = 0;
+    (appState.nms.connections || []).forEach(c => {
+        if (!c.hidden && getConnectionOpticalInfo(c).isNok) nokCount++;
+    });
+    const nokBadge = document.getElementById("nms-optical-nok-badge");
+    if (nokBadge) {
+        nokBadge.innerText = String(nokCount);
+    }
     if (summary) {
-        let nokCount = 0;
-        (appState.nms.connections || []).forEach(c => {
-            if (!c.hidden && getConnectionOpticalInfo(c).isNok) nokCount++;
-        });
-        const nokHtml = nokCount > 0
-            ? ` | <span style="color: #fca5a5; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> ${nokCount} Optical NOK</span>`
-            : "";
-        summary.innerHTML = `${appState.nms.devices.length} Devices | ${appState.nms.connections.length} Links${nokHtml}`;
+        summary.innerHTML = `${appState.nms.devices.length} Devices | ${appState.nms.connections.length} Links`;
     }
 }
 

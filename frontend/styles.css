@@ -2143,7 +2143,8 @@ div.premium-modal .modal-wrapper {
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--text-main);
-    word-break: break-all; /* prevents text clipping out of bounds */
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .status-indicator {
@@ -2536,18 +2537,21 @@ body:not(.light-mode) .leaflet-tile-pane {
 
 /* Custom dark glassmorphic tooltip */
 .leaflet-tooltip {
-    background: rgba(15, 23, 42, 0.95) !important;
+    background: rgba(15, 23, 42, 0.96) !important;
     backdrop-filter: blur(12px) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: var(--border-radius-sm) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 8px !important;
     color: var(--text-main) !important;
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.8rem !important;
+    font-size: 0.78rem !important;
     font-weight: 400 !important;
-    box-shadow: var(--box-shadow) !important;
-    padding: 10px 14px !important;
-    white-space: pre-wrap !important;
-    line-height: 1.4 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65) !important;
+    padding: 10px 13px !important;
+    white-space: nowrap !important;
+    width: max-content !important;
+    min-width: 220px !important;
+    max-width: 360px !important;
+    line-height: 1.45 !important;
 }
 
 /* Leaflet Zoom control dark theme */
@@ -3447,5 +3451,34 @@ body.light-mode .nms-controls-content {
     height: 3.5px;
     box-shadow: 0 0 6px rgba(249, 115, 22, 0.85);
 }
+
+.nms-optical-nok-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+    color: #fca5a5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.nms-optical-nok-toggle-btn:hover {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.6);
+}
+
+.nms-optical-nok-toggle-btn.active {
+    background: #ef4444;
+    border-color: #f87171;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.55);
+}
+
 
 

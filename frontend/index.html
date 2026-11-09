@@ -44,8 +44,8 @@
         </nav>
         
         <!-- NMS Header Controls (visible only when Topology view is active) -->
-        <div id="nms-header-controls" class="hidden" style="display: flex; align-items: center; gap: 15px; margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 20px; height: 32px; z-index: 10;">
-             <span id="nms-status-summary" class="nms-badge-summary" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">0 Devices | 0 Links</span>
+        <div id="nms-header-controls" class="hidden" style="display: flex; align-items: center; gap: 12px; margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 20px; height: 32px; z-index: 10;">
+             <span id="nms-status-summary" class="nms-badge-summary" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">0 Devices | 0 Links</span>
              <div class="nms-layout-switcher" style="display: flex; gap: 4px; background: rgba(0,0,0,0.25); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
                  <button id="layout-logical-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
                      <i class="fa-solid fa-diagram-project"></i> <span>Logical</span>
@@ -57,6 +57,11 @@
                      <i class="fa-solid fa-chart-pie"></i> <span>Summary</span>
                  </button>
              </div>
+             <button id="nms-optical-nok-btn" class="nms-optical-nok-toggle-btn" title="Toggle to show ONLY links with Optical NOK (Warning / Alarm)">
+                 <i class="fa-solid fa-triangle-exclamation"></i>
+                 <span>Optical NOK Only</span>
+                 <span id="nms-optical-nok-badge" style="padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,0.35); font-size: 0.66rem; font-family: monospace;">0</span>
+             </button>
         </div>
         
         <!-- Path scanner input bar -->
