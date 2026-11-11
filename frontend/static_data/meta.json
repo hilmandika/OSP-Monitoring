@@ -1,10 +1,10 @@
 {
-  "published_at": "2026-11-11 14:29:26",
+  "published_at": "2026-11-11 15:09:09",
   "encrypted": true,
   "otdr_folders_count": 32,
   "otdr_files_count": 696,
   "devices_count": 115,
   "connections_count": 174,
-  "optical_ports_count": 315,
-  "optical_scan_updated_at": "2026-11-11 14:25:22"
+  "optical_ports_count": 413,
+  "optical_scan_updated_at": "2026-11-11 15:04:04"
 }
