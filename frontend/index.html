@@ -655,13 +655,26 @@
                                         </div>
                                     </div>
 
-                                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
-                                        <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
-                                            <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
-                                            <span>NOK Optical Connections (Click any row to inspect on Topology Map)</span>
+                                    <!-- Breakdown by Connection Category: Router-Router, Router-OLT, OLT-OLT -->
+                                    <div id="dash-opt-category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                                        <!-- Populated dynamically with Router - Router, Router - OLT, and OLT - OLT breakdown cards -->
+                                    </div>
+
+                                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; flex-direction: column; gap: 12px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+                                                <span>NOK Optical Connections by Category (Click any row to inspect on Topology Map)</span>
+                                            </div>
+                                            <div id="dash-opt-category-filters" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                                <button type="button" class="dash-opt-cat-btn active" data-cat="all" onclick="setDashOpticalCategoryFilter('all')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.18); color: #60a5fa; cursor: pointer;">All Categories</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-router" onclick="setDashOpticalCategoryFilter('router-router')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">Router - Router</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-olt" onclick="setDashOpticalCategoryFilter('router-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">Router - OLT</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="olt-olt" onclick="setDashOpticalCategoryFilter('olt-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">OLT - OLT</button>
+                                            </div>
                                         </div>
-                                        <div id="dash-opt-nok-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
-                                            <!-- Populated dynamically -->
+                                        <div id="dash-opt-nok-list" style="display: flex; flex-direction: column; gap: 14px; max-height: 460px; overflow-y: auto; padding-right: 4px;">
+                                            <!-- Populated dynamically with divided Router-Router, Router-OLT, and OLT-OLT NOK sections -->
                                         </div>
                                     </div>
                                 </div>

@@ -6658,18 +6658,106 @@ function updateNmsSummaryDashboard() {
         }
     }
 
-    // 3. Optical Power Telemetry & NOK Connections Summary
+    // 3. Optical Power Telemetry & NOK Connections Summary (Divided by Router-Router, Router-OLT, OLT-OLT)
     const optScan = appState.nms.opticalScan || { updated_at: null, results: [] };
     const optResults = Array.isArray(optScan.results) ? optScan.results : [];
+    const devTypeByName = new Map();
+    devices.forEach(d => {
+        if (d && d.name) devTypeByName.set(d.name, d.type === "OLT" ? "OLT" : "Router");
+    });
+    const inferDevType = (name) => {
+        if (devTypeByName.has(name)) return devTypeByName.get(name);
+        const upper = String(name || "").toUpperCase();
+        if (upper.includes("GPON") || upper.includes("OLT")) return "OLT";
+        return "Router";
+    };
+    const classifyPairCategory = (nameA, nameB) => {
+        const typeA = inferDevType(nameA);
+        const typeB = inferDevType(nameB);
+        if (typeA === "Router" && typeB === "Router") return "router-router";
+        if (typeA === "OLT" && typeB === "OLT") return "olt-olt";
+        return "router-olt";
+    };
+
+    const catMeta = {
+        "router-router": {
+            key: "router-router",
+            label: "Router - Router",
+            subLabel: "Core / Metro Interlinks",
+            icon: "fa-network-wired",
+            accent: "#3b82f6",
+            totalLinks: 0,
+            scannedPorts: 0,
+            normalPorts: 0,
+            warnPorts: 0,
+            alarmPorts: 0,
+            nokLinks: []
+        },
+        "router-olt": {
+            key: "router-olt",
+            label: "Router - OLT",
+            subLabel: "Aggregation / OLT Uplinks",
+            icon: "fa-diagram-project",
+            accent: "#a855f7",
+            totalLinks: 0,
+            scannedPorts: 0,
+            normalPorts: 0,
+            warnPorts: 0,
+            alarmPorts: 0,
+            nokLinks: []
+        },
+        "olt-olt": {
+            key: "olt-olt",
+            label: "OLT - OLT",
+            subLabel: "Sub-Ring / Cascade Links",
+            icon: "fa-server",
+            accent: "#14b8a6",
+            totalLinks: 0,
+            scannedPorts: 0,
+            normalPorts: 0,
+            warnPorts: 0,
+            alarmPorts: 0,
+            nokLinks: []
+        }
+    };
+
     let optNormalCount = 0;
     let optWarnCount = 0;
     let optAlarmCount = 0;
 
     optResults.forEach(r => {
         const h = evaluatePortOpticalHealth(r);
-        if (h.severity === "normal") optNormalCount++;
-        else if (h.severity === "warning") optWarnCount++;
-        else if (h.severity === "alarm") optAlarmCount++;
+        const catKey = classifyPairCategory(r.router, r.target);
+        const bucket = catMeta[catKey] || catMeta["router-olt"];
+        bucket.scannedPorts++;
+        if (h.severity === "normal") {
+            optNormalCount++;
+            bucket.normalPorts++;
+        } else if (h.severity === "warning") {
+            optWarnCount++;
+            bucket.warnPorts++;
+        } else if (h.severity === "alarm") {
+            optAlarmCount++;
+            bucket.alarmPorts++;
+        }
+    });
+
+    conns.forEach(c => {
+        const catKey = classifyPairCategory(c.source, c.target);
+        const bucket = catMeta[catKey] || catMeta["router-olt"];
+        bucket.totalLinks++;
+        const info = getConnectionOpticalInfo(c);
+        if (info.isNok) {
+            bucket.nokLinks.push({ conn: c, info, catKey });
+        }
+    });
+
+    Object.values(catMeta).forEach(bucket => {
+        bucket.nokLinks.sort((a, b) => {
+            if (a.info.worstSeverity === "alarm" && b.info.worstSeverity !== "alarm") return -1;
+            if (a.info.worstSeverity !== "alarm" && b.info.worstSeverity === "alarm") return 1;
+            return 0;
+        });
     });
 
     const optTsEl = document.getElementById("dash-optical-timestamp");
@@ -6677,7 +6765,10 @@ function updateNmsSummaryDashboard() {
     const optNormalEl = document.getElementById("dash-opt-normal");
     const optWarnEl = document.getElementById("dash-opt-warning");
     const optAlarmEl = document.getElementById("dash-opt-alarm");
+    const optCatGridEl = document.getElementById("dash-opt-category-grid");
     const optNokListEl = document.getElementById("dash-opt-nok-list");
+
+    const activeCatFilter = appState.nms.dashOpticalCategoryFilter || "all";
 
     if (optTsEl) optTsEl.innerText = optScan.updated_at ? `Last Scan: ${optScan.updated_at}` : "Last Scan: Not available";
     if (optTotalEl) optTotalEl.innerText = optResults.length;
@@ -6685,60 +6776,145 @@ function updateNmsSummaryDashboard() {
     if (optWarnEl) optWarnEl.innerText = optWarnCount;
     if (optAlarmEl) optAlarmEl.innerText = optAlarmCount;
 
-    if (optNokListEl) {
-        const nokConnections = [];
-        conns.forEach(c => {
-            const info = getConnectionOpticalInfo(c);
-            if (info.isNok) {
-                nokConnections.push({ conn: c, info });
-            }
-        });
+    // Update filter buttons visual state
+    document.querySelectorAll("#dash-opt-category-filters .dash-opt-cat-btn").forEach(btn => {
+        const isCurrent = btn.getAttribute("data-cat") === activeCatFilter;
+        btn.classList.toggle("active", isCurrent);
+        btn.style.borderColor = isCurrent ? "var(--primary)" : "var(--border-color)";
+        btn.style.background = isCurrent ? "rgba(59, 130, 246, 0.18)" : "rgba(255,255,255,0.03)";
+        btn.style.color = isCurrent ? "#60a5fa" : "var(--text-muted)";
+    });
 
-        nokConnections.sort((a, b) => {
-            if (a.info.worstSeverity === "alarm" && b.info.worstSeverity !== "alarm") return -1;
-            if (a.info.worstSeverity !== "alarm" && b.info.worstSeverity === "alarm") return 1;
-            return 0;
-        });
-
-        if (nokConnections.length > 0) {
-            optNokListEl.innerHTML = nokConnections.map(({ conn, info }) => {
-                const isAlarm = info.worstSeverity === "alarm";
-                const col = isAlarm ? "#ef4444" : "#f97316";
-                const bg = isAlarm ? "rgba(239, 68, 68, 0.06)" : "rgba(249, 115, 22, 0.06)";
-                const border = isAlarm ? "rgba(239, 68, 68, 0.25)" : "rgba(249, 115, 22, 0.25)";
-                const h = info.primaryHealth;
-                return `
-                    <div onclick="inspectOpticalNokConnection('${conn.id}')"
-                         style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${bg}; border: 1px solid ${border}; border-radius: 6px; padding: 10px 14px; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;"
-                         onmouseover="this.style.borderColor='${col}'"
-                         onmouseout="this.style.borderColor='${border}'">
-                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-                            <span style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
-                                <i class="fa-solid fa-triangle-exclamation" style="color: ${col};"></i>
-                                ${escapeHTML(conn.source)} <span style="color: var(--text-muted); font-weight: 400;">[${escapeHTML(conn.source_interface)}]</span>
-                                ↔ ${escapeHTML(conn.target)}
+    if (optCatGridEl) {
+        optCatGridEl.innerHTML = ["router-router", "router-olt", "olt-olt"].map(catKey => {
+            const b = catMeta[catKey];
+            const isSelected = activeCatFilter === catKey;
+            const nokCount = b.nokLinks.length;
+            const borderCol = isSelected ? b.accent : "rgba(255,255,255,0.07)";
+            const bgCol = isSelected ? "rgba(30, 41, 59, 0.85)" : "rgba(255,255,255,0.025)";
+            return `
+                <div onclick="setDashOpticalCategoryFilter('${catKey === activeCatFilter ? 'all' : catKey}')"
+                     title="Click to filter NOK connections by ${b.label}"
+                     style="background: ${bgCol}; border: 1px solid ${borderCol}; border-radius: 8px; padding: 13px 15px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 28px; height: 28px; border-radius: 6px; background: ${b.accent}22; border: 1px solid ${b.accent}55; color: ${b.accent}; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem;">
+                                <i class="fa-solid ${b.icon}"></i>
                             </span>
-                            <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace;">
-                                Link: ${escapeHTML(conn.link || 'Unnamed')} • ${conn.bitrate}G
-                            </span>
+                            <div>
+                                <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-main); font-family: 'Outfit', sans-serif;">${b.label}</div>
+                                <div style="font-size: 0.66rem; color: var(--text-muted);">${b.subLabel}</div>
+                            </div>
                         </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0;">
-                            <span style="font-family: monospace; font-weight: 800; color: ${col}; font-size: 0.85rem;">${escapeHTML(h.rxText)}</span>
-                            <span class="badge" style="font-size: 0.62rem; padding: 1px 6px; background: ${bg}; color: ${col}; border: 1px solid ${border};">${escapeHTML(h.statusText)}</span>
+                        <span style="font-size: 0.68rem; font-family: monospace; padding: 2px 8px; border-radius: 999px; font-weight: 700; background: ${nokCount > 0 ? 'rgba(239, 68, 68, 0.14)' : 'rgba(16, 185, 129, 0.12)'}; color: ${nokCount > 0 ? '#f87171' : '#34d399'}; border: 1px solid ${nokCount > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.25)'};">
+                            ${nokCount} NOK ${nokCount === 1 ? 'Link' : 'Links'}
+                        </span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; text-align: center; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05);">
+                        <div style="background: rgba(255,255,255,0.02); padding: 5px 4px; border-radius: 4px;">
+                            <div style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase;">Links</div>
+                            <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); font-family: monospace;">${b.totalLinks}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.02); padding: 5px 4px; border-radius: 4px;">
+                            <div style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase;">Scanned</div>
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #93c5fd; font-family: monospace;">${b.scannedPorts}</div>
+                        </div>
+                        <div style="background: rgba(16, 185, 129, 0.06); padding: 5px 4px; border-radius: 4px;">
+                            <div style="font-size: 0.6rem; color: #10b981; text-transform: uppercase;">OK</div>
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #10b981; font-family: monospace;">${b.normalPorts}</div>
+                        </div>
+                        <div style="background: rgba(249, 115, 22, 0.07); padding: 5px 4px; border-radius: 4px;">
+                            <div style="font-size: 0.6rem; color: #f97316; text-transform: uppercase;">Warn</div>
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #f97316; font-family: monospace;">${b.warnPorts}</div>
+                        </div>
+                        <div style="background: rgba(239, 68, 68, 0.07); padding: 5px 4px; border-radius: 4px;">
+                            <div style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">Alarm</div>
+                            <div style="font-size: 0.88rem; font-weight: 700; color: #ef4444; font-family: monospace;">${b.alarmPorts}</div>
                         </div>
                     </div>
-                `;
-            }).join("");
-        } else {
-            optNokListEl.innerHTML = `
-                <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 10px 14px; font-size: 0.78rem; color: var(--success); font-weight: 500;">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span>All scanned optical links are operating within normal DDM power thresholds.</span>
                 </div>
             `;
-        }
+        }).join("");
+    }
+
+    if (optNokListEl) {
+        const categoriesToRender = activeCatFilter === "all"
+            ? ["router-router", "router-olt", "olt-olt"]
+            : [activeCatFilter];
+
+        const renderNokCard = ({ conn, info }) => {
+            const isAlarm = info.worstSeverity === "alarm";
+            const col = isAlarm ? "#ef4444" : "#f97316";
+            const bg = isAlarm ? "rgba(239, 68, 68, 0.06)" : "rgba(249, 115, 22, 0.06)";
+            const border = isAlarm ? "rgba(239, 68, 68, 0.25)" : "rgba(249, 115, 22, 0.25)";
+            const h = info.primaryHealth;
+
+            // Also summarize peer endpoint health so both sides are visible at a glance
+            const isSrcPrimary = (info.primaryRecord && info.primaryRecord === info.srcRecord);
+            const peerName = isSrcPrimary ? conn.target : conn.source;
+            const peerPort = isSrcPrimary ? conn.target_interface : conn.source_interface;
+            const peerHealth = isSrcPrimary ? info.tgtHealth : info.srcHealth;
+            const peerSummary = (peerHealth && peerHealth.hasData)
+                ? `Peer ${peerName} [${peerPort}]: ${peerHealth.rxText} (${peerHealth.statusText})`
+                : `Peer ${peerName} [${peerPort}]: Not Scanned`;
+
+            return `
+                <div onclick="inspectOpticalNokConnection('${conn.id}')"
+                     style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: ${bg}; border: 1px solid ${border}; border-radius: 6px; padding: 10px 14px; font-size: 0.78rem; cursor: pointer; transition: all 0.2s;"
+                     onmouseover="this.style.borderColor='${col}'"
+                     onmouseout="this.style.borderColor='${border}'">
+                    <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                        <span style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <i class="fa-solid fa-triangle-exclamation" style="color: ${col};"></i>
+                            ${escapeHTML(conn.source)} <span style="color: var(--text-muted); font-weight: 400;">[${escapeHTML(conn.source_interface)}]</span>
+                            ↔ ${escapeHTML(conn.target)} <span style="color: var(--text-muted); font-weight: 400;">[${escapeHTML(conn.target_interface)}]</span>
+                        </span>
+                        <span style="font-size: 0.67rem; color: var(--text-muted); font-family: monospace;">
+                            Link: ${escapeHTML(conn.link || 'Unnamed')} • ${conn.bitrate}G • ${escapeHTML(peerSummary)}
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0;">
+                        <span style="font-family: monospace; font-weight: 800; color: ${col}; font-size: 0.85rem;">${escapeHTML(h.rxText)}</span>
+                        <span class="badge" style="font-size: 0.62rem; padding: 1px 6px; background: ${bg}; color: ${col}; border: 1px solid ${border};">${escapeHTML(h.statusText)}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        optNokListEl.innerHTML = categoriesToRender.map(catKey => {
+            const b = catMeta[catKey];
+            if (!b) return "";
+            const cardsHtml = b.nokLinks.length > 0
+                ? `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px;">${b.nokLinks.map(renderNokCard).join("")}</div>`
+                : `<div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.14); border-radius: 6px; padding: 8px 12px; font-size: 0.74rem; color: #34d399;">
+                       <i class="fa-solid fa-circle-check"></i>
+                       <span>No NOK optical connections in ${b.label}.</span>
+                   </div>`;
+
+            return `
+                <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid ${b.icon}" style="color: ${b.accent}; font-size: 0.82rem;"></i>
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); font-family: 'Outfit', sans-serif;">${b.label}</span>
+                            <span style="font-size: 0.68rem; color: var(--text-muted);">(${b.subLabel})</span>
+                        </div>
+                        <span style="font-size: 0.68rem; font-family: monospace; color: ${b.nokLinks.length > 0 ? '#f87171' : '#34d399'}; font-weight: 600;">
+                            ${b.nokLinks.length} NOK / ${b.totalLinks} Total Links
+                        </span>
+                    </div>
+                    ${cardsHtml}
+                </div>
+            `;
+        }).join("");
     }
 }
+
+window.setDashOpticalCategoryFilter = function(catKey) {
+    if (!appState.nms) return;
+    appState.nms.dashOpticalCategoryFilter = catKey || "all";
+    updateNmsSummaryDashboard();
+};
 
 /* ==========================================================================
    SSH Console Controller
