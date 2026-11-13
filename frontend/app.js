@@ -320,6 +320,7 @@ async function enableStaticPresentationMode() {
     const termScreen = document.getElementById("console-terminal-screen");
     const termInputRow = document.getElementById("console-input-row");
     const closeDiagBtn = document.getElementById("console-close-diagnostics-btn");
+    const consoleMainPanel = document.getElementById("console-main-panel");
     const diagCardEl = document.getElementById("console-diagnostics-card");
     const diagTableWrap = document.getElementById("console-diagnostics-table-wrapper");
 
@@ -330,7 +331,7 @@ async function enableStaticPresentationMode() {
         consoleViewTitle.innerHTML = '<i class="fa-solid fa-square-poll-horizontal"></i> Optical Power Report';
     }
     if (consoleViewDesc) {
-        consoleViewDesc.innerText = "Snapshot of router connection optical transceiver Rx power levels and DDM thresholds.";
+        consoleViewDesc.innerText = "Snapshot of router & OLT connection optical transceiver Rx power levels and DDM thresholds.";
     }
     if (jbUpperRow) jbUpperRow.style.display = "none";
     if (leftPanel) leftPanel.style.display = "none";
@@ -338,15 +339,24 @@ async function enableStaticPresentationMode() {
     if (termScreen) termScreen.style.display = "none";
     if (termInputRow) termInputRow.style.display = "none";
     if (closeDiagBtn) closeDiagBtn.style.display = "none";
+    if (consoleMainPanel) {
+        consoleMainPanel.style.height = "calc(100vh - 185px)";
+        consoleMainPanel.style.minHeight = "500px";
+    }
     if (diagCardEl) {
         diagCardEl.classList.remove("hidden");
         diagCardEl.style.maxHeight = "none";
         diagCardEl.style.flex = "1";
+        diagCardEl.style.minHeight = "0";
+        diagCardEl.style.overflow = "hidden";
         diagCardEl.style.borderTop = "none";
     }
     if (diagTableWrap) {
         diagTableWrap.style.maxHeight = "none";
         diagTableWrap.style.flex = "1";
+        diagTableWrap.style.minHeight = "0";
+        diagTableWrap.style.overflowY = "auto";
+        diagTableWrap.style.overflowX = "auto";
     }
     if (staticBadge) {
         staticBadge.classList.remove("hidden");
@@ -6931,7 +6941,10 @@ let consoleState = {
     jumpboxAuth: null,
     scanRunning: false,
     scanPaused: false,
-    scanStopped: false
+    scanStopped: false,
+    savedScanData: null,
+    opticalFilterText: "",
+    opticalNokOnly: false
 };
 
 async function initConsoleView() {
@@ -8800,62 +8813,343 @@ async function initConsoleView() {
         }
     }
 
+    function buildOpticalRowHtml(item, roleMeta = null) {
+        const pairIndent = roleMeta && roleMeta.isPeer
+            ? `<span style="color: #64748b; margin-right: 6px; font-family: monospace;">↳</span>`
+            : "";
+        const linkBadge = roleMeta && roleMeta.linkLabel
+            ? `<span style="margin-left: 6px; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); color: #93c5fd; font-family: monospace; font-weight: 500;">${escapeHTML(roleMeta.linkLabel)}</span>`
+            : "";
+        const rowBg = roleMeta && roleMeta.pairBg ? `background: ${roleMeta.pairBg};` : "";
+        const leftBorder = roleMeta && roleMeta.pairBorder ? `border-left: 3px solid ${roleMeta.pairBorder};` : "";
+
+        if (!item) {
+            return `
+                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(roleMeta?.device || "-")}</td>
+                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg}">${escapeHTML(roleMeta?.target || "-")}</td>
+                <td style="padding: 8px 10px; font-family: monospace; color: var(--text-muted); ${rowBg}">${escapeHTML(roleMeta?.port || "-")}${linkBadge}</td>
+                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted); font-style: italic; ${rowBg}">Peer port not scanned yet</td>
+                <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">Not Scanned</span></td>
+            `;
+        }
+
+        if (item.status === "success") {
+            const tStatus = item.thresholdStatus || getThresholdStatus(item.value, item.lowAlarm, item.lowWarn, item.highWarn, item.highAlarm);
+            let badgeStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981;";
+            if (tStatus.includes("Warning")) {
+                badgeStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b;";
+            } else if (tStatus.includes("Alarm")) {
+                badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #ef4444;";
+            }
+            return `
+                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-main); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
+                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace; ${rowBg}" title="${escapeHTML(item.toolTip || '')}">${escapeHTML(item.displayText || String(item.value ?? "-"))}</td>
+                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.lowAlarm ?? 0).toFixed(2)}</td>
+                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.lowWarn ?? 0).toFixed(2)}</td>
+                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.highWarn ?? 0).toFixed(2)}</td>
+                <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.highAlarm ?? 0).toFixed(2)}</td>
+                <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="${badgeStyle}">${escapeHTML(tStatus)}</span></td>
+            `;
+        } else if (item.status === "unsupported") {
+            return `
+                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
+                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted); ${rowBg}">DDM parameters not supported on port.</td>
+                <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
+            `;
+        } else {
+            const label = item.status === "unreachable" ? "Unreachable" : "Failed";
+            return `
+                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
+                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace; ${rowBg}">${escapeHTML(item.errorMsg || "Connection failed")}</td>
+                <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">${label}</span></td>
+            `;
+        }
+    }
+
+    function getItemSeverityRank(item) {
+        if (!item) return 0;
+        if (item.status === "success") {
+            const tStatus = item.thresholdStatus || getThresholdStatus(item.value, item.lowAlarm, item.lowWarn, item.highWarn, item.highAlarm);
+            if (tStatus.includes("Alarm")) return 3;
+            if (tStatus.includes("Warning")) return 2;
+            return 0;
+        }
+        if (item.status === "failed" || item.status === "unreachable") return 1;
+        return 0;
+    }
+
     function renderSavedOpticalScan(scanData) {
         if (!scanData || !Array.isArray(scanData.results) || scanData.results.length === 0) return;
         if (!diagCard || !diagTbody) return;
 
-        diagTbody.innerHTML = "";
+        consoleState.savedScanData = scanData;
+        const filterQuery = (consoleState.opticalFilterText || "").trim().toLowerCase();
+        const nokOnly = !!consoleState.opticalNokOnly;
+
+        // Index scan results by router||port
+        const resMap = new Map();
         scanData.results.forEach(item => {
-            const tr = document.createElement("tr");
-            tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
-            if (item.status === "success") {
-                const tStatus = item.thresholdStatus || getThresholdStatus(item.value, item.lowAlarm, item.lowWarn, item.highWarn, item.highAlarm);
-                let badgeStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981;";
-                if (tStatus.includes("Warning")) {
-                    badgeStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b;";
-                } else if (tStatus.includes("Alarm")) {
-                    badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #ef4444;";
-                }
-                tr.innerHTML = `
-                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(item.router || "-")}</td>
-                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(item.target || "-")}</td>
-                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(item.port || "-")}</td>
-                    <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace;" title="${escapeHTML(item.toolTip || '')}">${escapeHTML(item.displayText || String(item.value ?? "-"))}</td>
-                    <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${Number(item.lowAlarm ?? 0).toFixed(2)}</td>
-                    <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${Number(item.lowWarn ?? 0).toFixed(2)}</td>
-                    <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${Number(item.highWarn ?? 0).toFixed(2)}</td>
-                    <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${Number(item.highAlarm ?? 0).toFixed(2)}</td>
-                    <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="${badgeStyle}">${escapeHTML(tStatus)}</span></td>
-                `;
-            } else if (item.status === "unsupported") {
-                tr.innerHTML = `
-                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(item.router || "-")}</td>
-                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(item.target || "-")}</td>
-                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(item.port || "-")}</td>
-                    <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);">DDM parameters not supported on port.</td>
-                    <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
-                `;
-            } else {
-                const label = item.status === "unreachable" ? "Unreachable" : "Failed";
-                tr.innerHTML = `
-                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(item.router || "-")}</td>
-                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(item.target || "-")}</td>
-                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(item.port || "-")}</td>
-                    <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">${escapeHTML(item.errorMsg || "Connection failed")}</td>
-                    <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">${label}</span></td>
-                `;
-            }
-            diagTbody.appendChild(tr);
+            const key = `${item.router || ""}||${item.port || ""}`;
+            resMap.set(key, item);
         });
+
+        const connections = (appState.nms && Array.isArray(appState.nms.connections)) ? appState.nms.connections : [];
+        const consumedKeys = new Set();
+        const groupMap = new Map();
+
+        const getOrCreateGroup = (devA, devB) => {
+            const pair = [devA || "-", devB || "-"].sort((a, b) => a.localeCompare(b));
+            const gKey = `${pair[0]}||${pair[1]}`;
+            if (!groupMap.has(gKey)) {
+                groupMap.set(gKey, {
+                    key: gKey,
+                    devA: pair[0],
+                    devB: pair[1],
+                    entries: [] // Each entry is either { kind: 'pair', conn, srcRec, tgtRec } or { kind: 'single', rec }
+                });
+            }
+            return groupMap.get(gKey);
+        };
+
+        // 1. Group topology connections as Pair Ports (Side A + Side B) under their Device-Pair Connection Group
+        connections.forEach(conn => {
+            const srcKey = `${conn.source || ""}||${conn.source_interface || ""}`;
+            const tgtKey = `${conn.target || ""}||${conn.target_interface || ""}`;
+            const srcRec = resMap.get(srcKey) || null;
+            const tgtRec = resMap.get(tgtKey) || null;
+            if (!srcRec && !tgtRec) return;
+
+            if (srcRec) consumedKeys.add(srcKey);
+            if (tgtRec) consumedKeys.add(tgtKey);
+
+            const grp = getOrCreateGroup(conn.source, conn.target);
+            grp.entries.push({
+                kind: "pair",
+                conn,
+                srcRec,
+                tgtRec
+            });
+        });
+
+        // 2. Include any remaining scanned entries (not matched to a topology connection) in their Device-Pair Group
+        scanData.results.forEach(item => {
+            const key = `${item.router || ""}||${item.port || ""}`;
+            if (consumedKeys.has(key)) return;
+            const grp = getOrCreateGroup(item.router, item.target);
+            grp.entries.push({
+                kind: "single",
+                rec: item
+            });
+        });
+
+        // Helper to match character filter and NOK filter on an entry
+        const itemSearchBlob = (item, extraText = "") => {
+            if (!item) return extraText.toLowerCase();
+            const tStatus = item.status === "success"
+                ? (item.thresholdStatus || getThresholdStatus(item.value, item.lowAlarm, item.lowWarn, item.highWarn, item.highAlarm))
+                : (item.status || "");
+            return `${item.router || ""} ${item.target || ""} ${item.port || ""} ${item.displayText || ""} ${tStatus} ${item.errorMsg || ""} ${extraText}`.toLowerCase();
+        };
+
+        const filteredGroups = [];
+        let visiblePortRows = 0;
+
+        Array.from(groupMap.values()).forEach(grp => {
+            const matchingEntries = grp.entries.filter(entry => {
+                if (entry.kind === "pair") {
+                    const sevA = getItemSeverityRank(entry.srcRec);
+                    const sevB = getItemSeverityRank(entry.tgtRec);
+                    const isNokEntry = Math.max(sevA, sevB) >= 2;
+                    if (nokOnly && !isNokEntry) return false;
+
+                    if (!filterQuery) return true;
+                    const linkInfo = `${entry.conn.link || ""} ${entry.conn.bitrate || ""}g ${entry.conn.status || ""} ${entry.conn.type || ""}`;
+                    const blobA = itemSearchBlob(entry.srcRec, `${entry.conn.source} ${entry.conn.target} ${entry.conn.source_interface} ${linkInfo}`);
+                    const blobB = itemSearchBlob(entry.tgtRec, `${entry.conn.target} ${entry.conn.source} ${entry.conn.target_interface} ${linkInfo}`);
+                    return blobA.includes(filterQuery) || blobB.includes(filterQuery);
+                } else {
+                    const sev = getItemSeverityRank(entry.rec);
+                    if (nokOnly && sev < 2) return false;
+                    if (!filterQuery) return true;
+                    return itemSearchBlob(entry.rec).includes(filterQuery);
+                }
+            });
+
+            if (matchingEntries.length === 0) return;
+
+            let maxSev = 0;
+            matchingEntries.forEach(entry => {
+                if (entry.kind === "pair") {
+                    maxSev = Math.max(maxSev, getItemSeverityRank(entry.srcRec), getItemSeverityRank(entry.tgtRec));
+                    visiblePortRows += 2;
+                } else {
+                    maxSev = Math.max(maxSev, getItemSeverityRank(entry.rec));
+                    visiblePortRows += 1;
+                }
+            });
+
+            filteredGroups.push({
+                ...grp,
+                entries: matchingEntries,
+                maxSev
+            });
+        });
+
+        // Sort groups: Alarm (3) -> Warning (2) -> Failed (1) -> Normal (0), then alphabetically
+        filteredGroups.sort((a, b) => {
+            if (b.maxSev !== a.maxSev) return b.maxSev - a.maxSev;
+            return a.key.localeCompare(b.key);
+        });
+
+        diagTbody.innerHTML = "";
+
+        if (filteredGroups.length === 0) {
+            diagTbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                        <i class="fa-solid fa-filter-circle-xmark" style="margin-right: 6px; color: var(--primary);"></i>
+                        No optical power records match your current filter.
+                    </td>
+                </tr>
+            `;
+        } else {
+            filteredGroups.forEach(grp => {
+                // Connection Group Header Row
+                const headerTr = document.createElement("tr");
+                const grpAccent = grp.maxSev >= 3 ? "#ef4444" : grp.maxSev === 2 ? "#f59e0b" : "#3b82f6";
+                const grpBadgeText = grp.maxSev >= 3 ? "ALARM" : grp.maxSev === 2 ? "WARNING" : "OK";
+                const grpBadgeStyle = grp.maxSev >= 3
+                    ? "background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35);"
+                    : grp.maxSev === 2
+                    ? "background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);"
+                    : "background: rgba(16, 185, 129, 0.14); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.28);";
+                const pairCount = grp.entries.filter(e => e.kind === "pair").length;
+                const extraCount = grp.entries.filter(e => e.kind === "single").length;
+                const countLabel = [
+                    pairCount > 0 ? `${pairCount} ${pairCount === 1 ? "Link Pair" : "Link Pairs"}` : "",
+                    extraCount > 0 ? `${extraCount} ${extraCount === 1 ? "Port" : "Ports"}` : ""
+                ].filter(Boolean).join(" • ");
+
+                headerTr.innerHTML = `
+                    <td colspan="9" style="padding: 8px 12px; background: rgba(30, 41, 59, 0.85); border-top: 2px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ${grpAccent};">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.78rem;">
+                                <i class="fa-solid fa-link" style="color: ${grpAccent}; font-size: 0.75rem;"></i>
+                                <span>${escapeHTML(grp.devA)}</span>
+                                <span style="color: var(--text-muted); font-weight: 400;">↔</span>
+                                <span>${escapeHTML(grp.devB)}</span>
+                                <span style="font-size: 0.68rem; color: var(--text-muted); font-family: monospace; font-weight: 500;">(${escapeHTML(countLabel)})</span>
+                            </div>
+                            <span style="font-size: 0.65rem; font-family: monospace; font-weight: 700; padding: 1px 8px; border-radius: 999px; ${grpBadgeStyle}">${grpBadgeText}</span>
+                        </div>
+                    </td>
+                `;
+                diagTbody.appendChild(headerTr);
+
+                grp.entries.forEach((entry, idx) => {
+                    if (entry.kind === "pair") {
+                        const pairSev = Math.max(getItemSeverityRank(entry.srcRec), getItemSeverityRank(entry.tgtRec));
+                        const pairBorder = pairSev >= 3 ? "#ef4444" : pairSev === 2 ? "#f59e0b" : (idx % 2 === 0 ? "rgba(59, 130, 246, 0.55)" : "rgba(168, 85, 247, 0.55)");
+                        const pairBg = idx % 2 === 0 ? "rgba(15, 23, 42, 0.28)" : "rgba(30, 41, 59, 0.22)";
+                        const linkLabel = `${entry.conn.link || "Link"} • ${entry.conn.bitrate || 10}G`;
+
+                        const trA = document.createElement("tr");
+                        trA.style.borderBottom = "1px solid rgba(255, 255, 255, 0.03)";
+                        trA.innerHTML = buildOpticalRowHtml(entry.srcRec, {
+                            isPeer: false,
+                            linkLabel,
+                            pairBorder,
+                            pairBg,
+                            device: entry.conn.source,
+                            target: entry.conn.target,
+                            port: entry.conn.source_interface
+                        });
+                        diagTbody.appendChild(trA);
+
+                        const trB = document.createElement("tr");
+                        trB.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
+                        trB.innerHTML = buildOpticalRowHtml(entry.tgtRec, {
+                            isPeer: true,
+                            linkLabel: "Peer",
+                            pairBorder,
+                            pairBg,
+                            device: entry.conn.target,
+                            target: entry.conn.source,
+                            port: entry.conn.target_interface
+                        });
+                        diagTbody.appendChild(trB);
+                    } else {
+                        const tr = document.createElement("tr");
+                        tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
+                        tr.innerHTML = buildOpticalRowHtml(entry.rec);
+                        diagTbody.appendChild(tr);
+                    }
+                });
+            });
+        }
 
         if (opticalTimestampEl && scanData.updated_at) {
             opticalTimestampEl.innerText = `Last Scan: ${scanData.updated_at}`;
             opticalTimestampEl.classList.remove("hidden");
         }
         if (diagProgress) {
-            diagProgress.innerText = `${scanData.results.length} saved ports`;
+            const isFiltered = !!(filterQuery || nokOnly);
+            diagProgress.innerText = isFiltered
+                ? `${visiblePortRows} matching rows (${filteredGroups.length} groups)`
+                : `${scanData.results.length} ports • ${filteredGroups.length} connection groups`;
         }
         diagCard.classList.remove("hidden");
+    }
+
+    const optFilterInput = document.getElementById("console-optical-filter-input");
+    const optFilterClear = document.getElementById("console-optical-filter-clear");
+    const optNokFilterBtn = document.getElementById("console-optical-nok-filter-btn");
+
+    if (optFilterInput && !optFilterInput.dataset.listenerBound) {
+        optFilterInput.dataset.listenerBound = "true";
+        optFilterInput.addEventListener("input", () => {
+            consoleState.opticalFilterText = optFilterInput.value || "";
+            if (optFilterClear) {
+                optFilterClear.classList.toggle("hidden", !consoleState.opticalFilterText);
+            }
+            if (consoleState.savedScanData) {
+                renderSavedOpticalScan(consoleState.savedScanData);
+            }
+        });
+    }
+
+    if (optFilterClear && !optFilterClear.dataset.listenerBound) {
+        optFilterClear.dataset.listenerBound = "true";
+        optFilterClear.addEventListener("click", () => {
+            consoleState.opticalFilterText = "";
+            if (optFilterInput) {
+                optFilterInput.value = "";
+                optFilterInput.focus();
+            }
+            optFilterClear.classList.add("hidden");
+            if (consoleState.savedScanData) {
+                renderSavedOpticalScan(consoleState.savedScanData);
+            }
+        });
+    }
+
+    if (optNokFilterBtn && !optNokFilterBtn.dataset.listenerBound) {
+        optNokFilterBtn.dataset.listenerBound = "true";
+        optNokFilterBtn.addEventListener("click", () => {
+            consoleState.opticalNokOnly = !consoleState.opticalNokOnly;
+            optNokFilterBtn.style.borderColor = consoleState.opticalNokOnly ? "#f97316" : "var(--border-color)";
+            optNokFilterBtn.style.background = consoleState.opticalNokOnly ? "rgba(249, 115, 22, 0.16)" : "rgba(255,255,255,0.03)";
+            optNokFilterBtn.style.color = consoleState.opticalNokOnly ? "#fb923c" : "var(--text-muted)";
+            if (consoleState.savedScanData) {
+                renderSavedOpticalScan(consoleState.savedScanData);
+            }
+        });
     }
 
     async function loadSavedOpticalScan(autoOpen = false) {

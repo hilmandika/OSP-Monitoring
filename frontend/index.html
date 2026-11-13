@@ -1069,7 +1069,7 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 20px; align-items: stretch; height: 650px;">
+            <div id="console-main-panel" style="display: flex; gap: 20px; align-items: stretch; height: 650px;">
                 <!-- Left Control Panel -->
                 <div id="console-left-panel" style="width: 320px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0;">
                     <!-- 2. Target Device & Connection Card -->
@@ -1136,7 +1136,7 @@
                 </div>
 
                 <!-- Right Terminal Console Panel -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; position: relative;">
+                <div id="console-right-panel" style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; position: relative;">
                     <!-- Terminal Header Bar -->
                     <div id="console-terminal-header" style="background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
@@ -1163,22 +1163,32 @@
                     </div>
 
                     <!-- Diagnostics Results Card (Hidden by default) -->
-                    <div id="console-diagnostics-card" class="hidden" style="background: #0f172a; border-top: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 340px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                    <div id="console-diagnostics-card" class="hidden" style="background: #0f172a; border-top: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 340px; min-height: 0; overflow: hidden;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                                 <h4 style="margin: 0; font-size: 0.85rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 6px;">
                                     <i class="fa-solid fa-square-poll-horizontal"></i> Connection Optical Power Summary
                                 </h4>
                                 <span id="console-optical-timestamp" style="font-size: 0.7rem; color: #10b981; font-family: monospace; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);" class="hidden"></span>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <div style="position: relative; display: flex; align-items: center;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 9px; font-size: 0.7rem; color: var(--text-muted); pointer-events: none;"></i>
+                                    <input type="text" id="console-optical-filter-input" placeholder="Filter device, target, port, link..." style="background: rgba(5, 8, 16, 0.75); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 5px; padding: 4px 26px 4px 28px; font-size: 0.74rem; outline: none; width: 230px; transition: border-color 0.2s;" />
+                                    <button type="button" id="console-optical-filter-clear" class="hidden" title="Clear filter" style="position: absolute; right: 6px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.72rem; padding: 2px 4px;">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                                <button type="button" id="console-optical-nok-filter-btn" title="Show only NOK (Warning / Alarm) links and their pair ports" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 5px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                                    <i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> NOK Only
+                                </button>
                                 <span id="console-diagnose-progress" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;"></span>
                                 <button id="console-close-diagnostics-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;" title="Close table"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
-                        <div id="console-diagnostics-table-wrapper" class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 4px; overflow-y: auto; max-height: 250px; margin: 0; background: rgba(5, 8, 16, 0.4);">
+                        <div id="console-diagnostics-table-wrapper" class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 4px; overflow-y: auto; overflow-x: auto; max-height: 250px; min-height: 0; flex: 1; margin: 0; background: rgba(5, 8, 16, 0.4);">
                             <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0;">
-                                <thead>
+                                <thead style="position: sticky; top: 0; z-index: 5; background: #0f172a; box-shadow: 0 1px 0 var(--border-color);">
                                     <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.8);">
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device</th>
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Target Connection</th>
