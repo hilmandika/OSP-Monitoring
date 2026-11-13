@@ -1,27 +1,20 @@
 {
   "version": 1,
-  "kid": "92b744806da7",
+  "kid": "8dcabf2678f1",
   "users": [
     {
       "username": "admin",
-      "salt": "XJBmCWoOJAmQlsmVVp/9oA==",
+      "salt": "tz3W68sh/KdCqpA9MuuaVw==",
       "iterations": 100000,
-      "iv": "AoZvdGzXbII9Q4kC",
-      "wrapped_key": "qPf2uM6FI3C97aKVPR+IVOvVMMjruWOicgtl8Ho5CQ3r4w0yKTe0Em15CWtNlrH0"
+      "iv": "w+pAL6l6a2jxPhu5",
+      "wrapped_key": "kx6NyKZfbdjGw4JP1Ged7AQ0Dczk+sd3tlU3e5eowahxQEXySPNNk2i0rHRsD9e9"
     },
     {
       "username": "hilman",
-      "salt": "3mdH6TLOdYl+D7Q2JJqhnA==",
+      "salt": "Rno/DKbsG4Zp01eQUkqi2A==",
       "iterations": 100000,
-      "iv": "jEBsyxnPKD6GuH3H",
-      "wrapped_key": "MYiwYGDz1kNQNCsmhQ2GouXCwBCGAhG7lN5WjeyyFBTWALE2zqwqjGKDYOnkhGnA"
-    },
-    {
-      "username": "dana",
-      "salt": "HJH9JaLN2TkhB83V+qbCqw==",
-      "iterations": 100000,
-      "iv": "FMF+91T4RihB7fjq",
-      "wrapped_key": "jAA0HLdVPSs/zvipcBDyPgLX59LByKIQzUjCc9y8Gccjy/p9jvCvP2MSN1rFmjv5"
+      "iv": "pK6wYcfK2w1nZtmv",
+      "wrapped_key": "dQgqf/e2KFeFhGoGVq8UeI9zso0OVXCq3t66xt4VP9ozIP4mWh/Y2FDPytQ/LwmE"
     }
   ]
 }
