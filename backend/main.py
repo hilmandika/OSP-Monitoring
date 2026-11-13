@@ -1278,15 +1278,7 @@ async def websocket_console_endpoint(websocket: WebSocket):
                     best_match_len = len(pattern)
         
         if not ssh_cmd_template:
-            if is_olt_device and dev_user:
-                ssh_cmd_template = (
-                    "ssh -oKexAlgorithms=+diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 "
-                    "-oHostKeyAlgorithms=+ssh-rsa -oStrictHostKeyChecking=no {user}@{ip}"
-                )
-            elif dev_user and dev_user != "admin":
-                ssh_cmd_template = "ssh {user}@{ip}"
-            else:
-                ssh_cmd_template = "ssh {ip}"
+            ssh_cmd_template = "ssh {ip}"
         
         target_ssh_cmd = ssh_cmd_template.replace("{ip}", dev_ip).replace("{user}", dev_user or "admin")
         shell.send(f"{target_ssh_cmd}\n")
@@ -1483,15 +1475,7 @@ def execute_console_command(req: CommandRequest):
                         best_match_len = len(pattern)
             
             if not ssh_cmd_template:
-                if is_olt_device and req.device_username:
-                    ssh_cmd_template = (
-                        "ssh -oKexAlgorithms=+diffie-hellman-group1-sha1,diffie-hellman-group14-sha1 "
-                        "-oHostKeyAlgorithms=+ssh-rsa -oStrictHostKeyChecking=no {user}@{ip}"
-                    )
-                elif req.device_username and req.device_username != "admin":
-                    ssh_cmd_template = "ssh {user}@{ip}"
-                else:
-                    ssh_cmd_template = "ssh {ip}"
+                ssh_cmd_template = "ssh {ip}"
             
             target_ssh_cmd = ssh_cmd_template.replace("{ip}", req.device_ip).replace("{user}", req.device_username or "admin")
             shell.send(f"{target_ssh_cmd}\n")
