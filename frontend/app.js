@@ -8094,9 +8094,8 @@ async function initConsoleView() {
                 tr.id = `console-diag-row-${idx}`;
                 tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
                 tr.innerHTML = `
-                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
-                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                    <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
+                    <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                     <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-hourglass-start"></i> Waiting...</td>
                     <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Queued</span></td>
                 `;
@@ -8112,9 +8111,8 @@ async function initConsoleView() {
                     if (!row) continue;
                     
                     row.innerHTML = `
-                        <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(activeDev.name)}</td>
-                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                        <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                        <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--primary);">${escapeHTML(activeDev.name)}</td>
+                        <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                         <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Polling optical diagnostics...</td>
                         <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Testing</span></td>
                     `;
@@ -8135,9 +8133,8 @@ async function initConsoleView() {
                             }
                             
                             row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
+                                <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                                 <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${status.includes("Alarm") ? '#ef4444' : status.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace;" title="${escapeHTML(parsed.toolTip || '')}">${escapeHTML(parsed.displayText)}</td>
                                 <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowAlarm.toFixed(2)}</td>
                                 <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowWarn.toFixed(2)}</td>
@@ -8161,9 +8158,8 @@ async function initConsoleView() {
                             });
                         } else {
                             row.innerHTML = `
-                                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
-                                <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                                <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
+                                <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                                 <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);">DDM parameters not supported on port.</td>
                                 <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
                             `;
@@ -8176,9 +8172,8 @@ async function initConsoleView() {
                         }
                     } catch (err) {
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(activeDev.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Error: ${escapeHTML(err.message)}</td>
                             <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Failed</span></td>
                         `;
@@ -8586,9 +8581,8 @@ async function initConsoleView() {
                 tr.id = `console-diag-all-row-${globalPortIdx}`;
                 tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
                 tr.innerHTML = `
-                    <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                    <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                    <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                    <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                    <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                     <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-hourglass-start"></i> Waiting...</td>
                     <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Queued</span></td>
                 `;
@@ -8633,9 +8627,8 @@ async function initConsoleView() {
                 const row = portElementsMap[mapKey];
                 if (row) {
                     row.innerHTML = `
-                        <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
-                        <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                        <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                        <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
+                        <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                         <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Connecting to ${escapeHTML(labelSingular)}...</td>
                         <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Connecting</span></td>
                     `;
@@ -8650,9 +8643,8 @@ async function initConsoleView() {
 
                     if (status === "scanning") {
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--primary);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--primary);"><i class="fa-solid fa-spinner fa-spin"></i> Polling optical diagnostics...</td>
                             <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary);">Scanning</span></td>
                         `;
@@ -8668,9 +8660,8 @@ async function initConsoleView() {
                         }
 
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace;" title="${escapeHTML(parsed.toolTip || '')}">${escapeHTML(parsed.displayText)}</td>
                             <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowAlarm.toFixed(2)}</td>
                             <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace;">${parsed.lowWarn.toFixed(2)}</td>
@@ -8695,9 +8686,8 @@ async function initConsoleView() {
                         finishedPortsCount++;
                     } else if (status === "unsupported") {
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted);">DDM parameters not supported on port.</td>
                             <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
                         `;
@@ -8711,9 +8701,8 @@ async function initConsoleView() {
                     } else if (status === "failed") {
                         const errorMsg = extra;
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Error: ${escapeHTML(errorMsg)}</td>
                             <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Failed</span></td>
                         `;
@@ -8740,9 +8729,8 @@ async function initConsoleView() {
                     const row = portElementsMap[mapKey];
                     if (row) {
                         row.innerHTML = `
-                            <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
-                            <td style="padding: 8px 10px; font-weight: 600;">${escapeHTML(task.target)}</td>
-                            <td style="padding: 8px 10px; font-family: monospace;">${escapeHTML(task.port)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted);">${escapeHTML(sq.router.name)}</td>
+                            <td style="padding: 8px 10px; text-align: left; font-family: monospace;">${escapeHTML(task.port)}</td>
                             <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace;">Device connection failed: ${escapeHTML(routerErr.message)}</td>
                             <td style="padding: 8px 10px; text-align: center;"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">Unreachable</span></td>
                         `;
@@ -8825,9 +8813,8 @@ async function initConsoleView() {
 
         if (!item) {
             return `
-                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(roleMeta?.device || "-")}</td>
-                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg}">${escapeHTML(roleMeta?.target || "-")}</td>
-                <td style="padding: 8px 10px; font-family: monospace; color: var(--text-muted); ${rowBg}">${escapeHTML(roleMeta?.port || "-")}${linkBadge}</td>
+                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(roleMeta?.device || "-")}</td>
+                <td style="padding: 8px 10px; text-align: left; font-family: monospace; color: var(--text-muted); ${rowBg}">${escapeHTML(roleMeta?.port || "-")}${linkBadge}</td>
                 <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted); font-style: italic; ${rowBg}">Peer port not scanned yet</td>
                 <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">Not Scanned</span></td>
             `;
@@ -8842,9 +8829,8 @@ async function initConsoleView() {
                 badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #ef4444;";
             }
             return `
-                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-main); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
-                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
-                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-main); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; text-align: left; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
                 <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: ${tStatus.includes("Alarm") ? '#ef4444' : tStatus.includes("Warning") ? '#f59e0b' : '#10b981'}; font-family: monospace; ${rowBg}" title="${escapeHTML(item.toolTip || '')}">${escapeHTML(item.displayText || String(item.value ?? "-"))}</td>
                 <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.lowAlarm ?? 0).toFixed(2)}</td>
                 <td style="padding: 8px 10px; text-align: right; color: var(--text-muted); font-family: monospace; ${rowBg}">${Number(item.lowWarn ?? 0).toFixed(2)}</td>
@@ -8854,18 +8840,16 @@ async function initConsoleView() {
             `;
         } else if (item.status === "unsupported") {
             return `
-                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
-                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
-                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; text-align: left; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
                 <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--text-muted); ${rowBg}">DDM parameters not supported on port.</td>
                 <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted);">N/A</span></td>
             `;
         } else {
             const label = item.status === "unreachable" ? "Unreachable" : "Failed";
             return `
-                <td style="padding: 8px 10px; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
-                <td style="padding: 8px 10px; font-weight: 600; ${rowBg}">${escapeHTML(item.target || "-")}</td>
-                <td style="padding: 8px 10px; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
+                <td style="padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-muted); ${rowBg} ${leftBorder}">${pairIndent}${escapeHTML(item.router || "-")}</td>
+                <td style="padding: 8px 10px; text-align: left; font-family: monospace; ${rowBg}">${escapeHTML(item.port || "-")}${linkBadge}</td>
                 <td colspan="5" style="padding: 8px 10px; text-align: center; color: var(--danger); font-family: monospace; ${rowBg}">${escapeHTML(item.errorMsg || "Connection failed")}</td>
                 <td style="padding: 8px 10px; text-align: center; ${rowBg}"><span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">${label}</span></td>
             `;
@@ -9012,7 +8996,7 @@ async function initConsoleView() {
         if (filteredGroups.length === 0) {
             diagTbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                    <td colspan="8" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
                         <i class="fa-solid fa-filter-circle-xmark" style="margin-right: 6px; color: var(--primary);"></i>
                         No optical power records match your current filter.
                     </td>
@@ -9037,7 +9021,7 @@ async function initConsoleView() {
                 ].filter(Boolean).join(" • ");
 
                 headerTr.innerHTML = `
-                    <td colspan="9" style="padding: 8px 12px; background: rgba(30, 41, 59, 0.85); border-top: 2px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ${grpAccent};">
+                    <td colspan="8" style="padding: 8px 12px; background: rgba(30, 41, 59, 0.85); border-top: 2px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ${grpAccent};">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.78rem;">
                                 <i class="fa-solid fa-link" style="color: ${grpAccent}; font-size: 0.75rem;"></i>
@@ -9166,7 +9150,7 @@ async function initConsoleView() {
                     diagCard.classList.remove("hidden");
                     diagTbody.innerHTML = `
                         <tr>
-                            <td colspan="9" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                            <td colspan="8" style="padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
                                 <i class="fa-solid fa-circle-info" style="margin-right: 6px; color: var(--primary);"></i>
                                 No optical power scan results have been published yet. Run <strong>Scan All Routers</strong> from the local collector app and click <strong>Publish to GitHub</strong>.
                             </td>
