@@ -417,6 +417,7 @@ class ConsoleSettingsModel(BaseModel):
 
 class CommandRequest(BaseModel):
     device_ip: str
+    device_name: Optional[str] = None
     device_type: str
     device_username: str
     device_password: str
@@ -990,6 +991,7 @@ async def websocket_console_endpoint(websocket: WebSocket):
         jb_user = init_data.get("jumpbox_username")
         jb_pass = init_data.get("jumpbox_password")
         dev_ip = init_data.get("device_ip")
+        dev_name = (init_data.get("device_name") or "").strip()
         dev_user = init_data.get("device_username")
         dev_pass = init_data.get("device_password")
         dev_type = init_data.get("device_type", "Router")
@@ -1280,45 +1282,86 @@ async def websocket_console_endpoint(websocket: WebSocket):
         if not ssh_cmd_template:
             ssh_cmd_template = "ssh {ip}"
         
-        target_ssh_cmd = ssh_cmd_template.replace("{ip}", dev_ip).replace("{user}", dev_user or "admin")
-        shell.send(f"{target_ssh_cmd}\n")
-        
-        # Wait for username or password prompt
+        ssh_targets = [dev_ip]
+        if dev_name and dev_name != dev_ip:
+            ssh_targets.append(dev_name)
+
+        ssh_error_markers = [
+            "connection refused",
+            "connection timed out",
+            "host unreachable",
+            "no route to host",
+            "network is unreachable",
+            "could not resolve",
+            "no matching key exchange",
+            "no matching cipher",
+            "kex_exchange_identification",
+            "connection closed",
+            "operation timed out",
+        ]
+
         password_prompted = False
-        username_sent = False
-        buffer = ""
-        start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < 15:
-            try:
-                if shell.recv_ready():
-                    chunk = shell.recv(4096).decode('utf-8', errors='replace')
-                    buffer += chunk
-                    await websocket.send_json({"type": "output", "data": chunk})
-                    chunk_lower = chunk.lower()
-                    if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
-                        shell.send("yes\n")
-                    if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
-                        shell.send(f"{dev_user or 'admin'}\n")
-                        username_sent = True
-                    if "password:" in chunk_lower:
-                        password_prompted = True
-                        break
-                    if "connection refused" in chunk_lower or "connection timed out" in chunk_lower or "host unreachable" in chunk_lower or "no matching key exchange" in chunk_lower:
-                        await websocket.send_json({"type": "error", "data": f"Connection error from jumpbox to device:\r\n{buffer}"})
-                        shell.close()
-                        jb_client.close()
-                        await websocket.close()
-                        return
-            except Exception:
-                pass
-            await asyncio.sleep(0.1)
+        last_error_buffer = ""
+
+        for attempt_idx, target_addr in enumerate(ssh_targets):
+            if attempt_idx > 0:
+                await websocket.send_json({
+                    "type": "status",
+                    "data": f"SSH: Connection via IP failed, retrying with hostname: 'ssh {target_addr}'...\r\n"
+                })
+                # Cancel any pending SSH attempt on jumpbox shell and drain buffer
+                shell.send("\x03\n")
+                await asyncio.sleep(0.3)
+                while shell.recv_ready():
+                    shell.recv(4096)
+
+            target_ssh_cmd = (
+                ssh_cmd_template
+                .replace("{ip}", target_addr)
+                .replace("{hostname}", target_addr)
+                .replace("{user}", dev_user or "admin")
+            )
+            shell.send(f"{target_ssh_cmd}\n")
             
-        if not password_prompted:
-            await websocket.send_json({"type": "error", "data": f"Timeout waiting for target device password prompt. Buffer:\r\n{buffer}"})
-            shell.close()
-            jb_client.close()
-            await websocket.close()
-            return
+            # Wait for username or password prompt
+            password_prompted = False
+            username_sent = False
+            attempt_failed_early = False
+            buffer = ""
+            start_time = asyncio.get_event_loop().time()
+            while asyncio.get_event_loop().time() - start_time < 12:
+                try:
+                    if shell.recv_ready():
+                        chunk = shell.recv(4096).decode('utf-8', errors='replace')
+                        buffer += chunk
+                        await websocket.send_json({"type": "output", "data": chunk})
+                        chunk_lower = chunk.lower()
+                        buffer_lower = buffer.lower()
+                        if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
+                            shell.send("yes\n")
+                        if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
+                            shell.send(f"{dev_user or 'admin'}\n")
+                            username_sent = True
+                        if "password:" in chunk_lower:
+                            password_prompted = True
+                            break
+                        if any(err_m in buffer_lower for err_m in ssh_error_markers):
+                            attempt_failed_early = True
+                            break
+                except Exception:
+                    pass
+                await asyncio.sleep(0.1)
+
+            last_error_buffer = buffer
+            if password_prompted:
+                break
+            if attempt_idx == len(ssh_targets) - 1:
+                err_prefix = "Connection error from jumpbox to device" if attempt_failed_early else "Timeout waiting for target device password prompt"
+                await websocket.send_json({"type": "error", "data": f"{err_prefix}. Buffer:\r\n{last_error_buffer}"})
+                shell.close()
+                jb_client.close()
+                await websocket.close()
+                return
             
         # Send target password
         shell.send(f"{dev_pass}\n")
@@ -1477,45 +1520,80 @@ def execute_console_command(req: CommandRequest):
             if not ssh_cmd_template:
                 ssh_cmd_template = "ssh {ip}"
             
-            target_ssh_cmd = ssh_cmd_template.replace("{ip}", req.device_ip).replace("{user}", req.device_username or "admin")
-            shell.send(f"{target_ssh_cmd}\n")
-            
-            # Wait for password prompt
+            dev_name = (req.device_name or "").strip()
+            ssh_targets = [req.device_ip]
+            if dev_name and dev_name != req.device_ip:
+                ssh_targets.append(dev_name)
+
+            ssh_error_markers = [
+                "connection refused",
+                "connection timed out",
+                "host unreachable",
+                "no route to host",
+                "network is unreachable",
+                "could not resolve",
+                "no matching key exchange",
+                "no matching cipher",
+                "kex_exchange_identification",
+                "connection closed",
+                "operation timed out",
+            ]
+
             password_prompted = False
-            username_sent = False
-            buffer = ""
-            start_time = time.time()
-            while time.time() - start_time < 15:
-                if shell.recv_ready():
-                    chunk = shell.recv(4096).decode('utf-8', errors='replace')
-                    buffer += chunk
-                    chunk_lower = chunk.lower()
-                    if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
-                        shell.send("yes\n")
-                    if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
-                        shell.send(f"{req.device_username or 'admin'}\n")
-                        username_sent = True
-                    if "password:" in chunk_lower:
-                        password_prompted = True
-                        break
-                    if "connection refused" in chunk_lower or "connection timed out" in chunk_lower or "host unreachable" in chunk_lower:
-                        jb_client.close()
-                        return {
-                            "status": "error",
-                            "message": f"Connection error from jumpbox to device: {buffer}",
-                            "output": "",
-                            "is_simulation": False
-                        }
-                time.sleep(0.1)
+            last_error_buffer = ""
+
+            for attempt_idx, target_addr in enumerate(ssh_targets):
+                if attempt_idx > 0:
+                    shell.send("\x03\n")
+                    time.sleep(0.3)
+                    while shell.recv_ready():
+                        shell.recv(4096)
+
+                target_ssh_cmd = (
+                    ssh_cmd_template
+                    .replace("{ip}", target_addr)
+                    .replace("{hostname}", target_addr)
+                    .replace("{user}", req.device_username or "admin")
+                )
+                shell.send(f"{target_ssh_cmd}\n")
                 
-            if not password_prompted:
-                jb_client.close()
-                return {
-                    "status": "error",
-                    "message": f"Timeout waiting for target device password prompt. Buffer:\n{buffer}",
-                    "output": "",
-                    "is_simulation": False
-                }
+                # Wait for password prompt
+                password_prompted = False
+                username_sent = False
+                attempt_failed_early = False
+                buffer = ""
+                start_time = time.time()
+                while time.time() - start_time < 12:
+                    if shell.recv_ready():
+                        chunk = shell.recv(4096).decode('utf-8', errors='replace')
+                        buffer += chunk
+                        chunk_lower = chunk.lower()
+                        buffer_lower = buffer.lower()
+                        if "continue connecting" in chunk_lower or "yes/no" in chunk_lower:
+                            shell.send("yes\n")
+                        if not username_sent and any(u in chunk_lower for u in ["username:", "user name:", "login as:", "login:"]):
+                            shell.send(f"{req.device_username or 'admin'}\n")
+                            username_sent = True
+                        if "password:" in chunk_lower:
+                            password_prompted = True
+                            break
+                        if any(err_m in buffer_lower for err_m in ssh_error_markers):
+                            attempt_failed_early = True
+                            break
+                    time.sleep(0.1)
+
+                last_error_buffer = buffer
+                if password_prompted:
+                    break
+                if attempt_idx == len(ssh_targets) - 1:
+                    jb_client.close()
+                    err_prefix = "Connection error from jumpbox to device" if attempt_failed_early else "Timeout waiting for target device password prompt"
+                    return {
+                        "status": "error",
+                        "message": f"{err_prefix}: {last_error_buffer}",
+                        "output": "",
+                        "is_simulation": False
+                    }
                 
             # Send target password
             shell.send(f"{req.device_password}\n")

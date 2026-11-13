@@ -7489,6 +7489,7 @@ async function initConsoleView() {
                         jumpbox_username: jbAuth.username,
                         jumpbox_password: jbAuth.password,
                         device_ip: dev.ip,
+                        device_name: dev.name,
                         device_username: devUser,
                         device_password: devPass,
                         device_type: dev.type,
@@ -8223,7 +8224,7 @@ async function initConsoleView() {
             let timeoutId = setTimeout(() => {
                 cleanup();
                 reject(new Error("Timeout establishing SSH connection via Jumpbox"));
-            }, 12000); // 12 seconds connection timeout per router
+            }, 25000); // 25 seconds connection timeout per device (allows IP -> hostname fallback)
             
             function cleanup() {
                 clearTimeout(timeoutId);
@@ -8236,6 +8237,7 @@ async function initConsoleView() {
                     jumpbox_username: jbAuth.username,
                     jumpbox_password: jbAuth.password,
                     device_ip: router.ip,
+                    device_name: router.name,
                     device_username: devUser,
                     device_password: devPass,
                     device_type: router.type,
