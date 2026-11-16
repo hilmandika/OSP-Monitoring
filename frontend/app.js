@@ -6731,14 +6731,27 @@ function updateNmsSummaryDashboard() {
         }
     };
 
+    let optScannedCount = 0;
     let optNormalCount = 0;
     let optWarnCount = 0;
     let optAlarmCount = 0;
+    let optUnreachablePortCount = 0;
+
+    const hideUnreachable = !!(appState.nms && appState.nms.dashHideUnreachable);
+    const isUnreachableRecord = (rec) => {
+        if (!rec) return false;
+        return rec.status === "unreachable" || rec.status === "failed";
+    };
 
     optResults.forEach(r => {
+        if (isUnreachableRecord(r)) {
+            optUnreachablePortCount++;
+            if (hideUnreachable) return;
+        }
         const h = evaluatePortOpticalHealth(r);
         const catKey = classifyPairCategory(r.router, r.target);
         const bucket = catMeta[catKey] || catMeta["router-olt"];
+        optScannedCount++;
         bucket.scannedPorts++;
         if (h.severity === "normal") {
             optNormalCount++;
@@ -6752,11 +6765,50 @@ function updateNmsSummaryDashboard() {
         }
     });
 
+    const getSummaryConnectionOpticalInfo = (conn) => {
+        const rawInfo = getConnectionOpticalInfo(conn);
+        if (!hideUnreachable) return rawInfo;
+
+        const srcOpt = isUnreachableRecord(rawInfo.sourceOpt) ? null : rawInfo.sourceOpt;
+        const tgtOpt = isUnreachableRecord(rawInfo.targetOpt) ? null : rawInfo.targetOpt;
+        const sHealth = evaluatePortOpticalHealth(srcOpt);
+        const tHealth = evaluatePortOpticalHealth(tgtOpt);
+        const rank = { alarm: 3, warning: 2, normal: 1, unsupported: 0, none: 0 };
+        const sRank = rank[sHealth.severity] || 0;
+        const tRank = rank[tHealth.severity] || 0;
+
+        let worstSeverity = "none";
+        let primaryOpt = srcOpt || tgtOpt;
+        let primaryHealth = srcOpt ? sHealth : tHealth;
+
+        if (sRank >= tRank && sRank > 0) {
+            worstSeverity = sHealth.severity;
+            primaryOpt = srcOpt;
+            primaryHealth = sHealth;
+        } else if (tRank > sRank && tRank > 0) {
+            worstSeverity = tHealth.severity;
+            primaryOpt = tgtOpt;
+            primaryHealth = tHealth;
+        }
+
+        return {
+            ...rawInfo,
+            sourceOpt: srcOpt,
+            targetOpt: tgtOpt,
+            sHealth,
+            tHealth,
+            worstSeverity,
+            isNok: worstSeverity === "alarm" || worstSeverity === "warning",
+            primaryOpt,
+            primaryHealth
+        };
+    };
+
     conns.forEach(c => {
         const catKey = classifyPairCategory(c.source, c.target);
         const bucket = catMeta[catKey] || catMeta["router-olt"];
         bucket.totalLinks++;
-        const info = getConnectionOpticalInfo(c);
+        const info = getSummaryConnectionOpticalInfo(c);
         if (info.isNok) {
             bucket.nokLinks.push({ conn: c, info, catKey });
         }
@@ -6777,14 +6829,22 @@ function updateNmsSummaryDashboard() {
     const optAlarmEl = document.getElementById("dash-opt-alarm");
     const optCatGridEl = document.getElementById("dash-opt-category-grid");
     const optNokListEl = document.getElementById("dash-opt-nok-list");
+    const hideUnreachBtn = document.getElementById("dash-opt-hide-unreachable-btn");
+    const unreachBadgeEl = document.getElementById("dash-opt-unreachable-badge");
 
     const activeCatFilter = appState.nms.dashOpticalCategoryFilter || "all";
 
     if (optTsEl) optTsEl.innerText = optScan.updated_at ? `Last Scan: ${optScan.updated_at}` : "Last Scan: Not available";
-    if (optTotalEl) optTotalEl.innerText = optResults.length;
+    if (optTotalEl) optTotalEl.innerText = optScannedCount;
     if (optNormalEl) optNormalEl.innerText = optNormalCount;
     if (optWarnEl) optWarnEl.innerText = optWarnCount;
     if (optAlarmEl) optAlarmEl.innerText = optAlarmCount;
+    if (unreachBadgeEl) unreachBadgeEl.innerText = optUnreachablePortCount;
+    if (hideUnreachBtn) {
+        hideUnreachBtn.style.borderColor = hideUnreachable ? "#f59e0b" : "var(--border-color)";
+        hideUnreachBtn.style.background = hideUnreachable ? "rgba(245, 158, 11, 0.16)" : "rgba(255,255,255,0.03)";
+        hideUnreachBtn.style.color = hideUnreachable ? "#fbbf24" : "var(--text-muted)";
+    }
 
     // Update filter buttons visual state
     document.querySelectorAll("#dash-opt-category-filters .dash-opt-cat-btn").forEach(btn => {
@@ -6860,11 +6920,12 @@ function updateNmsSummaryDashboard() {
             const h = info.primaryHealth;
 
             // Also summarize peer endpoint health so both sides are visible at a glance
-            const isSrcPrimary = (info.primaryRecord && info.primaryRecord === info.srcRecord);
+            const isSrcPrimary = (info.primaryOpt && info.primaryOpt === info.sourceOpt);
             const peerName = isSrcPrimary ? conn.target : conn.source;
             const peerPort = isSrcPrimary ? conn.target_interface : conn.source_interface;
-            const peerHealth = isSrcPrimary ? info.tgtHealth : info.srcHealth;
-            const peerSummary = (peerHealth && peerHealth.hasData)
+            const peerOpt = isSrcPrimary ? info.targetOpt : info.sourceOpt;
+            const peerHealth = isSrcPrimary ? info.tHealth : info.sHealth;
+            const peerSummary = (peerOpt && peerHealth)
                 ? `Peer ${peerName} [${peerPort}]: ${peerHealth.rxText} (${peerHealth.statusText})`
                 : `Peer ${peerName} [${peerPort}]: Not Scanned`;
 
@@ -6923,6 +6984,12 @@ function updateNmsSummaryDashboard() {
 window.setDashOpticalCategoryFilter = function(catKey) {
     if (!appState.nms) return;
     appState.nms.dashOpticalCategoryFilter = catKey || "all";
+    updateNmsSummaryDashboard();
+};
+
+window.toggleDashHideUnreachable = function() {
+    if (!appState.nms) return;
+    appState.nms.dashHideUnreachable = !appState.nms.dashHideUnreachable;
     updateNmsSummaryDashboard();
 };
 
