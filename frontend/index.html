@@ -46,7 +46,7 @@
         <!-- NMS Header Controls (visible only when Topology view is active) -->
         <div id="nms-header-controls" class="hidden" style="display: flex; align-items: center; gap: 12px; margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 20px; height: 32px; z-index: 10;">
              <span id="nms-status-summary" class="nms-badge-summary" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">0 Devices | 0 Links</span>
-             <div class="nms-layout-switcher" style="display: flex; gap: 4px; background: rgba(0,0,0,0.25); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+             <div class="nms-layout-switcher" style="display: flex; gap: 4px; background: var(--bg-subtle); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
                  <button id="layout-logical-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
                      <i class="fa-solid fa-diagram-project"></i> <span>Logical</span>
                  </button>
@@ -627,7 +627,7 @@
                                 </div>
 
                                 <!-- Optical Power Telemetry & NOK Connections Summary Card -->
-                                <div class="dashboard-card" style="background: rgba(15, 23, 42, 0.45); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                                <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 16px;">
                                     <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                                         <div style="display: flex; align-items: center; gap: 8px;">
                                             <i class="fa-solid fa-bolt" style="color: #f59e0b; font-size: 1.1rem;"></i>
@@ -1018,7 +1018,7 @@
             <!-- Upper Bar: Jumpbox Configuration & Gateway Connection -->
             <div id="console-jb-upper-row" style="display: flex; gap: 20px; margin-bottom: 20px; align-items: stretch;">
                 <!-- Jumpbox Configuration Card -->
-                <div class="glass-card" style="flex: 1; padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+                <div class="glass-card" style="flex: 1; padding: 18px; border-radius: var(--border-radius); background: var(--bg-card); box-shadow: var(--box-shadow); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
                     <h4 style="margin: 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-server"></i> Jumpbox Configuration
                     </h4>
@@ -1043,7 +1043,7 @@
                 </div>
 
                 <!-- 1. Jumpbox Gateway Connection Card -->
-                <div class="glass-card" id="console-jb-conn-card" style="flex: 1.5; padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
+                <div class="glass-card" id="console-jb-conn-card" style="flex: 1.5; padding: 18px; border-radius: var(--border-radius); background: var(--bg-card); box-shadow: var(--box-shadow); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; justify-content: space-between;">
                     <h4 style="margin: 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-server"></i> 1. Jumpbox Gateway
                     </h4>
@@ -1078,7 +1078,7 @@
                 <!-- Left Control Panel -->
                 <div id="console-left-panel" style="width: 320px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0;">
                     <!-- 2. Target Device & Connection Card -->
-                    <div class="glass-card" id="console-target-card" style="padding: 18px; border-radius: 8px; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; height: 100%; opacity: 0.5; pointer-events: none; transition: all 0.3s ease;">
+                    <div class="glass-card" id="console-target-card" style="padding: 18px; border-radius: var(--border-radius); background: var(--bg-card); box-shadow: var(--box-shadow); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; height: 100%; opacity: 0.5; pointer-events: none; transition: all 0.3s ease;">
                         <h4 style="margin: 0 0 4px 0; font-size: 0.9rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-network-wired"></i> 2. Target Device SSH
                         </h4>
@@ -1141,9 +1141,9 @@
                 </div>
 
                 <!-- Right Terminal Console Panel -->
-                <div id="console-right-panel" style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; position: relative;">
+                <div id="console-right-panel" style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); box-shadow: var(--box-shadow); overflow: hidden; position: relative;">
                     <!-- Terminal Header Bar -->
-                    <div id="console-terminal-header" style="background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div id="console-terminal-header" style="background: var(--bg-elevated); border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span id="console-status-led" style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444; display: inline-block;"></span>
                             <span id="console-status-text" style="font-size: 0.75rem; font-family: monospace; color: var(--text-muted);">CONSOLE DISCONNECTED</span>
@@ -1168,7 +1168,7 @@
                     </div>
 
                     <!-- Diagnostics Results Card (Hidden by default) -->
-                    <div id="console-diagnostics-card" class="hidden" style="background: #0f172a; border-top: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 340px; min-height: 0; overflow: hidden;">
+                    <div id="console-diagnostics-card" class="hidden" style="background: var(--bg-card); border-top: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 340px; min-height: 0; overflow: hidden;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0;">
                             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                                 <h4 style="margin: 0; font-size: 0.85rem; font-family: 'Outfit', sans-serif; color: var(--primary); display: flex; align-items: center; gap: 6px;">
@@ -1179,22 +1179,22 @@
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <div style="position: relative; display: flex; align-items: center;">
                                     <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 9px; font-size: 0.7rem; color: var(--text-muted); pointer-events: none;"></i>
-                                    <input type="text" id="console-optical-filter-input" placeholder="Filter device, target, port, link..." style="background: rgba(5, 8, 16, 0.75); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 5px; padding: 4px 26px 4px 28px; font-size: 0.74rem; outline: none; width: 230px; transition: border-color 0.2s;" />
+                                    <input type="text" id="console-optical-filter-input" placeholder="Filter device, target, port, link..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 5px; padding: 4px 26px 4px 28px; font-size: 0.74rem; outline: none; width: 230px; transition: border-color 0.2s;" />
                                     <button type="button" id="console-optical-filter-clear" class="hidden" title="Clear filter" style="position: absolute; right: 6px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.72rem; padding: 2px 4px;">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
                                 </div>
-                                <button type="button" id="console-optical-nok-filter-btn" title="Show only NOK (Warning / Alarm) links and their pair ports" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 5px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                                <button type="button" id="console-optical-nok-filter-btn" title="Show only NOK (Warning / Alarm) links and their pair ports" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
                                     <i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> NOK Only
                                 </button>
                                 <span id="console-diagnose-progress" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;"></span>
                                 <button id="console-close-diagnostics-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;" title="Close table"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
-                        <div id="console-diagnostics-table-wrapper" class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 4px; overflow-y: auto; overflow-x: auto; max-height: 250px; min-height: 0; flex: 1; margin: 0; background: rgba(5, 8, 16, 0.4);">
+                        <div id="console-diagnostics-table-wrapper" class="details-table-wrapper" style="border: 1px solid var(--border-color); border-radius: 6px; overflow-y: auto; overflow-x: auto; max-height: 250px; min-height: 0; flex: 1; margin: 0; background: var(--bg-dark);">
                             <table class="details-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0;">
-                                <thead style="position: sticky; top: 0; z-index: 5; background: #0f172a; box-shadow: 0 1px 0 var(--border-color);">
-                                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: rgba(15, 23, 42, 0.8);">
+                                <thead style="position: sticky; top: 0; z-index: 5; background: var(--bg-elevated); box-shadow: 0 1px 0 var(--border-color);">
+                                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left; background: var(--bg-elevated);">
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device</th>
                                         <th style="padding: 6px 10px; color: var(--primary); font-family: 'Outfit', sans-serif; font-weight: 600;">Device Port</th>
                                         <th style="padding: 6px 10px; color: var(--primary); text-align: right; font-family: 'Outfit', sans-serif; font-weight: 600;">Rx Power</th>

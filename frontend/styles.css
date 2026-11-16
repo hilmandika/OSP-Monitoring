@@ -4,45 +4,51 @@
 
 /* Design Tokens & CSS Custom Properties */
 :root {
-    --bg-app: hsl(224, 71%, 4%);
-    --bg-dark: hsl(222, 47%, 7%);
-    --bg-card: rgba(17, 24, 39, 0.7);
-    --bg-card-hover: rgba(31, 41, 55, 0.8);
+    color-scheme: dark;
+    --bg-app: #090d16;
+    --bg-dark: #0f172a;
+    --bg-card: rgba(15, 23, 42, 0.78);
+    --bg-card-hover: rgba(30, 41, 59, 0.85);
+    --bg-elevated: #1e293b;
+    --bg-subtle: rgba(255, 255, 255, 0.03);
+    --bg-header: rgba(9, 13, 22, 0.86);
+    --bg-tooltip: rgba(15, 23, 42, 0.96);
     --border-color: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.05);
     --border-color-focus: hsl(210, 100%, 55%);
     
     /* Branding Palette */
-    --primary: hsl(210, 100%, 55%);
-    --primary-hover: hsl(210, 100%, 65%);
-    --primary-glow: rgba(59, 130, 246, 0.35);
-    --accent-wavelength: hsl(190, 100%, 45%);
+    --primary: hsl(213, 94%, 52%);
+    --primary-hover: hsl(213, 94%, 60%);
+    --primary-glow: rgba(59, 130, 246, 0.18);
+    --accent-wavelength: hsl(190, 95%, 42%);
     
     /* Semantic Status colors */
-    --success: hsl(142, 70%, 45%);
+    --success: hsl(152, 69%, 42%);
     --success-bg: rgba(16, 185, 129, 0.1);
-    --success-border: rgba(16, 185, 129, 0.25);
-    --danger: hsl(350, 80%, 50%);
+    --success-border: rgba(16, 185, 129, 0.24);
+    --danger: hsl(350, 80%, 52%);
     --danger-bg: rgba(244, 63, 94, 0.1);
-    --danger-border: rgba(244, 63, 94, 0.3);
+    --danger-border: rgba(244, 63, 94, 0.28);
     
     /* Text Palette */
-    --text-main: hsl(210, 40%, 98%);
-    --text-muted: hsl(215, 20%, 65%);
-    --text-dim: hsl(215, 15%, 45%);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
     
     /* Layout Sizes */
-    --header-height: 75px;
+    --header-height: 64px;
     --sidebar-width: 320px;
-    --border-radius: 12px;
+    --border-radius: 10px;
     --border-radius-sm: 6px;
     
     /* Transits */
     --transition-fast: 0.15s ease;
-    --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     
     /* Shadows */
-    --box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.35);
-    --box-shadow-glow: 0 0 15px 0 rgba(59, 130, 246, 0.25);
+    --box-shadow: 0 2px 10px 0 rgba(0, 0, 0, 0.24);
+    --box-shadow-glow: 0 2px 8px 0 rgba(59, 130, 246, 0.2);
 }
 
 /* Reset & Core Browser Defaults */
@@ -140,13 +146,13 @@ body {
    ========================================================================== */
 .app-header {
     height: var(--header-height);
-    background-color: rgba(10, 17, 32, 0.75);
-    backdrop-filter: blur(16px);
+    background-color: var(--bg-header);
+    backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 30px;
+    padding: 0 24px;
     z-index: 10;
     position: relative;
 }
@@ -154,34 +160,33 @@ body {
 .header-logo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .logo-icon {
-    font-size: 1.6rem;
+    font-size: 1.25rem;
     color: var(--primary);
-    filter: drop-shadow(0 0 8px var(--primary-glow));
-    background: rgba(59, 130, 246, 0.1);
-    width: 44px;
-    height: 44px;
+    background: var(--primary-glow);
+    width: 36px;
+    height: 36px;
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 10px;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.22);
 }
 
 .logo-text h1 {
-    font-size: 1.25rem;
-    line-height: 1.1;
+    font-size: 1.05rem;
+    line-height: 1.15;
     font-weight: 700;
 }
 
 .logo-subtitle {
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
 }
 
 /* Scanner Input Bar in Header */
@@ -256,13 +261,13 @@ body {
 }
 
 .btn-secondary {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--bg-subtle);
     border-color: var(--border-color);
     color: var(--text-main);
 }
 
 .btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--bg-card-hover);
     border-color: var(--text-muted);
 }
 
@@ -842,7 +847,7 @@ body {
 }
 
 .filter-controls select {
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm);
     color: var(--text-main);
@@ -851,11 +856,6 @@ body {
     font-family: inherit;
     outline: none;
     cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 6px center;
-    background-size: 16px;
     min-width: 140px;
 }
 
@@ -1668,13 +1668,13 @@ div.premium-modal .modal-wrapper {
 
 .nav-tab:hover {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-subtle);
 }
 
 .nav-tab.active {
-    color: var(--text-main);
+    color: #ffffff;
     background: var(--primary);
-    box-shadow: 0 0 12px var(--primary-glow);
+    box-shadow: 0 1px 4px var(--primary-glow);
 }
 
 /* Header Scanner Bar visibility utility */
@@ -1775,7 +1775,7 @@ div.premium-modal .modal-wrapper {
     transform: translateX(-50%);
     width: 48px;
     height: 24px;
-    background: rgba(17, 24, 39, 0.9);
+    background: var(--bg-card);
     backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
@@ -2305,7 +2305,7 @@ div.premium-modal .modal-wrapper {
 }
 
 .spreadsheet-table th {
-    background: rgba(15, 23, 42, 0.9);
+    background: var(--bg-elevated);
     color: var(--text-muted);
     font-weight: 600;
     padding: 8px 12px;
@@ -2535,17 +2535,17 @@ body:not(.light-mode) .leaflet-tile-pane {
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
 }
 
-/* Custom dark glassmorphic tooltip */
+/* Custom glassmorphic tooltip (Dark & Light theme aware) */
 .leaflet-tooltip {
-    background: rgba(15, 23, 42, 0.96) !important;
+    background: var(--bg-tooltip) !important;
     backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px !important;
     color: var(--text-main) !important;
     font-family: 'Inter', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 400 !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65) !important;
+    box-shadow: var(--box-shadow) !important;
     padding: 10px 13px !important;
     white-space: nowrap !important;
     width: max-content !important;
@@ -2907,29 +2907,35 @@ svg, svg *, path, g {
 
 /* Light Theme Variables */
 body.light-mode {
-    --bg-app: hsl(210, 20%, 96%);
-    --bg-dark: hsl(0, 0%, 100%);
-    --bg-card: rgba(255, 255, 255, 0.85);
-    --bg-card-hover: rgba(243, 244, 246, 0.95);
-    --border-color: rgba(0, 0, 0, 0.12);
+    color-scheme: light;
+    --bg-app: #f8fafc;
+    --bg-dark: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1f5f9;
+    --bg-elevated: #f1f5f9;
+    --bg-subtle: rgba(15, 23, 42, 0.04);
+    --bg-header: rgba(255, 255, 255, 0.9);
+    --bg-tooltip: rgba(255, 255, 255, 0.98);
+    --border-color: rgba(15, 23, 42, 0.1);
+    --border-subtle: rgba(15, 23, 42, 0.06);
     
-    --primary: hsl(210, 100%, 45%);
-    --primary-hover: hsl(210, 100%, 35%);
-    --primary-glow: rgba(59, 130, 246, 0.15);
+    --primary: hsl(213, 90%, 45%);
+    --primary-hover: hsl(213, 90%, 38%);
+    --primary-glow: rgba(37, 99, 235, 0.12);
     
-    --success: hsl(142, 72%, 35%);
-    --success-bg: rgba(16, 185, 129, 0.06);
-    --success-border: rgba(16, 185, 129, 0.15);
+    --success: hsl(152, 72%, 34%);
+    --success-bg: rgba(16, 185, 129, 0.08);
+    --success-border: rgba(16, 185, 129, 0.2);
     
-    --danger: hsl(350, 82%, 45%);
-    --danger-bg: rgba(244, 63, 94, 0.06);
-    --danger-border: rgba(244, 63, 94, 0.15);
+    --danger: hsl(350, 82%, 44%);
+    --danger-bg: rgba(244, 63, 94, 0.08);
+    --danger-border: rgba(244, 63, 94, 0.2);
     
-    --text-main: hsl(222, 47%, 12%);
-    --text-muted: hsl(215, 16%, 42%);
-    --text-dim: hsl(215, 13%, 30%);
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --text-dim: #64748b;
     
-    --box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);
+    --box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
 }
 
 /* Fullscreen Topology Layout overrides */

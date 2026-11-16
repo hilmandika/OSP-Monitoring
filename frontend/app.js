@@ -2474,18 +2474,23 @@ function setupNmsEventListeners() {
         setTimeout(updateLinksSvgPosition, 200);
     });
 
-    // Theme Toggle (Light / Dark mode)
+    // Theme Toggle (Light / Dark mode) with localStorage persistence
     const themeBtn = document.getElementById("theme-toggle-btn");
+    const savedTheme = localStorage.getItem("osp_theme");
+    if (savedTheme === "light") {
+        document.body.classList.add("light-mode");
+    }
     if (themeBtn) {
+        const syncThemeBtnIcon = () => {
+            const isLight = document.body.classList.contains("light-mode");
+            themeBtn.innerHTML = isLight ? `<i class="fa-solid fa-moon"></i>` : `<i class="fa-solid fa-sun"></i>`;
+        };
+        syncThemeBtnIcon();
         themeBtn.addEventListener("click", () => {
             document.body.classList.toggle("light-mode");
             const isLight = document.body.classList.contains("light-mode");
-            
-            if (isLight) {
-                themeBtn.innerHTML = `<i class="fa-solid fa-moon"></i>`;
-            } else {
-                themeBtn.innerHTML = `<i class="fa-solid fa-sun"></i>`;
-            }
+            localStorage.setItem("osp_theme", isLight ? "light" : "dark");
+            syncThemeBtnIcon();
             
             // Leaflet base layer uses OpenStreetMap tiles with CSS dark-mode filter on .leaflet-tile-pane
             if (appState.nms.tileLayer && appState.nms.map) {
@@ -6860,8 +6865,8 @@ function updateNmsSummaryDashboard() {
             const b = catMeta[catKey];
             const isSelected = activeCatFilter === catKey;
             const nokCount = b.nokLinks.length;
-            const borderCol = isSelected ? b.accent : "rgba(255,255,255,0.07)";
-            const bgCol = isSelected ? "rgba(30, 41, 59, 0.85)" : "rgba(255,255,255,0.025)";
+            const borderCol = isSelected ? b.accent : "var(--border-color)";
+            const bgCol = isSelected ? "var(--bg-elevated)" : "var(--bg-subtle)";
             return `
                 <div onclick="setDashOpticalCategoryFilter('${catKey === activeCatFilter ? 'all' : catKey}')"
                      title="Click to filter NOK connections by ${b.label}"
@@ -6963,7 +6968,7 @@ function updateNmsSummaryDashboard() {
                    </div>`;
 
             return `
-                <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid ${b.icon}" style="color: ${b.accent}; font-size: 0.82rem;"></i>
@@ -9090,7 +9095,7 @@ async function initConsoleView() {
                 ].filter(Boolean).join(" • ");
 
                 headerTr.innerHTML = `
-                    <td colspan="8" style="padding: 8px 12px; background: rgba(30, 41, 59, 0.85); border-top: 2px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-left: 3px solid ${grpAccent};">
+                    <td colspan="8" style="padding: 8px 12px; background: var(--bg-elevated); border-top: 2px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-left: 3px solid ${grpAccent};">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.78rem;">
                                 <i class="fa-solid fa-link" style="color: ${grpAccent}; font-size: 0.75rem;"></i>
@@ -9109,7 +9114,7 @@ async function initConsoleView() {
                     if (entry.kind === "pair") {
                         const pairSev = Math.max(getItemSeverityRank(entry.srcRec), getItemSeverityRank(entry.tgtRec));
                         const pairBorder = pairSev >= 3 ? "#ef4444" : pairSev === 2 ? "#f59e0b" : (idx % 2 === 0 ? "rgba(59, 130, 246, 0.55)" : "rgba(168, 85, 247, 0.55)");
-                        const pairBg = idx % 2 === 0 ? "rgba(15, 23, 42, 0.28)" : "rgba(30, 41, 59, 0.22)";
+                        const pairBg = idx % 2 === 0 ? "var(--bg-dark)" : "var(--bg-subtle)";
                         const linkLabel = `${entry.conn.link || "Link"} • ${entry.conn.bitrate || 10}G`;
 
                         const trA = document.createElement("tr");
