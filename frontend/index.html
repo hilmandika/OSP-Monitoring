@@ -43,27 +43,6 @@
             </button>
         </nav>
         
-        <!-- NMS Header Controls (visible only when Topology view is active) -->
-        <div id="nms-header-controls" class="hidden" style="display: flex; align-items: center; gap: 12px; margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 20px; height: 32px; z-index: 10;">
-             <span id="nms-status-summary" class="nms-badge-summary" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">0 Devices | 0 Links</span>
-             <div class="nms-layout-switcher" style="display: flex; gap: 4px; background: var(--bg-subtle); padding: 3px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
-                 <button id="layout-logical-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
-                     <i class="fa-solid fa-diagram-project"></i> <span>Logical</span>
-                 </button>
-                 <button id="layout-geo-btn" class="btn btn-secondary btn-sm active" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
-                     <i class="fa-solid fa-earth-asia"></i> <span>Geographic Map</span>
-                 </button>
-                 <button id="layout-summary-btn" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px; background: transparent; color: var(--text-muted); cursor: pointer;">
-                     <i class="fa-solid fa-chart-pie"></i> <span>Summary</span>
-                 </button>
-             </div>
-             <button id="nms-optical-nok-btn" class="nms-optical-nok-toggle-btn" title="Toggle to show ONLY links with Optical NOK (Warning / Alarm)">
-                 <i class="fa-solid fa-triangle-exclamation"></i>
-                 <span>Optical NOK Only</span>
-                 <span id="nms-optical-nok-badge" style="padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,0.35); font-size: 0.66rem; font-family: monospace;">0</span>
-             </button>
-        </div>
-        
         <!-- Path scanner input bar -->
         <div class="scanner-bar" id="otdr-scanner-bar">
             <div class="input-wrapper">
@@ -319,118 +298,300 @@
                         <!-- Leaflet Map Container -->
                         <div id="nms-map-container" class="hidden" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;"></div>
                         
+                        <!-- Floating Segmented Topology Bar (Top-Center) -->
+                        <div id="nms-header-controls" style="position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 15; display: flex; align-items: center; gap: 10px; background: var(--bg-card); backdrop-filter: blur(14px); border: 1px solid var(--border-color); box-shadow: var(--box-shadow); padding: 5px 12px; border-radius: 999px;">
+                            <span id="nms-status-summary" style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; padding-right: 8px; border-right: 1px solid var(--border-color);">0 Devices | 0 Links</span>
+                            <div class="nms-layout-switcher" style="display: flex; gap: 3px; background: var(--bg-subtle); padding: 2px; border-radius: 999px; border: 1px solid var(--border-color);">
+                                <button id="layout-logical-btn" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.7rem; border: none; border-radius: 999px; display: flex; align-items: center; gap: 5px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                                    <i class="fa-solid fa-diagram-project"></i> <span>Logical</span>
+                                </button>
+                                <button id="layout-geo-btn" class="btn btn-secondary btn-sm active" style="padding: 4px 10px; font-size: 0.7rem; border: none; border-radius: 999px; display: flex; align-items: center; gap: 5px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                                    <i class="fa-solid fa-earth-asia"></i> <span>Geographic</span>
+                                </button>
+                                <button id="layout-summary-btn" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.7rem; border: none; border-radius: 999px; display: flex; align-items: center; gap: 5px; background: transparent; color: var(--text-muted); cursor: pointer;">
+                                    <i class="fa-solid fa-chart-pie"></i> <span>Summary</span>
+                                </button>
+                            </div>
+                            <button id="nms-optical-nok-btn" class="nms-optical-nok-toggle-btn" style="border-radius: 999px;" title="Toggle to show ONLY links with Optical NOK (Warning / Alarm)">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <span>Optical NOK Only</span>
+                                <span id="nms-optical-nok-badge" style="padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,0.35); font-size: 0.66rem; font-family: monospace;">0</span>
+                            </button>
+                        </div>
+
                         <!-- Summary Dashboard Container -->
-                        <div id="nms-summary-container" class="hidden nms-summary-view" style="width: 100%; height: 100%; overflow-y: auto; padding: 30px; box-sizing: border-box; background: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; position: absolute; top: 0; left: 0; z-index: 2;">
-                            <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;">
-                                <!-- Summary Header -->
-                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
-                                    <div>
-                                        <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.3rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Network Topology Dashboard</h3>
-                                        <p style="margin: 5px 0 0 0; font-size: 0.76rem; color: var(--text-muted);">Real-time equipment distribution, connectivity status, and capacity statistics</p>
-                                    </div>
-                                    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary-glow); padding: 6px 12px; border-radius: 20px; font-size: 0.72rem; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                        <span style="display: inline-block; width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: pulse-green 1.5s infinite;"></span>
-                                        <span>Active Network Monitoring</span>
-                                    </div>
-                                </div>
-
-                                <!-- 3-Column Key Stats Grid -->
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                                    <!-- Device Card -->
-                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Equipment Distribution</span>
-                                            <i class="fa-solid fa-server" style="color: var(--primary); font-size: 1.1rem;"></i>
+                        <div id="nms-summary-container" class="hidden nms-summary-view" style="width: 100%; height: 100%; overflow-y: auto; padding: 66px 28px 28px 28px; box-sizing: border-box; background: var(--bg-app); color: var(--text-main); font-family: 'Inter', sans-serif; position: absolute; top: 0; left: 0; z-index: 2;">
+                            <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px;">
+                                <!-- Compact Summary Header + KPI Strip -->
+                                <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 14px 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+                                            <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--text-main);">Network Topology Summary</h3>
+                                            <span style="font-size: 0.74rem; color: var(--text-muted);">Equipment distribution, optical power health, and resiliency overview</span>
                                         </div>
-                                        <div style="display: flex; align-items: baseline; gap: 6px;">
-                                            <span id="dash-total-devices" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif;">0</span>
-                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Total Devices</span>
-                                        </div>
-                                        <!-- Mini progress bars -->
-                                        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
-                                                    <span>Routers</span>
-                                                    <span id="dash-router-count">0</span>
-                                                </div>
-                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                                    <div id="dash-router-progress" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.8s ease;"></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
-                                                    <span>OLT Cabinets</span>
-                                                    <span id="dash-olt-count">0</span>
-                                                </div>
-                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                                    <div id="dash-olt-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 60%); transition: width 0.8s ease;"></div>
-                                                </div>
-                                            </div>
+                                        <div style="background: var(--success-bg); border: 1px solid var(--success-border); padding: 4px 10px; border-radius: 999px; font-size: 0.68rem; color: var(--success); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                            <span style="display: inline-block; width: 6px; height: 6px; background: var(--success); border-radius: 50%;"></span>
+                                            <span>Active Telemetry</span>
                                         </div>
                                     </div>
 
-                                    <!-- Connection/Links Card -->
-                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Connectivity Status</span>
-                                            <i class="fa-solid fa-link" style="color: hsl(280, 80%, 65%); font-size: 1.1rem;"></i>
-                                        </div>
-                                        <div style="display: flex; align-items: baseline; gap: 6px;">
-                                            <span id="dash-total-links" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif;">0</span>
-                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Active Links</span>
-                                        </div>
-                                        <!-- Link Breakdown -->
-                                        <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
-                                                    <span>Interlink (Router-Router)</span>
-                                                    <span id="dash-interlink-count">0</span>
-                                                </div>
-                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                                    <div id="dash-interlink-progress" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.8s ease;"></div>
-                                                </div>
+                                    <!-- Compact 3-Column KPI Strip -->
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+                                        <!-- Equipment Strip -->
+                                        <div style="background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                                <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Total Devices</span>
+                                                <span id="dash-total-devices" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);">0</span>
                                             </div>
-                                            <div>
-                                                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 4px;">
-                                                    <span>Uplink (Router-OLT or OLT-OLT)</span>
-                                                    <span id="dash-uplink-count">0</span>
-                                                </div>
-                                                <div style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-                                                    <div id="dash-uplink-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 65%); transition: width 0.8s ease;"></div>
-                                                </div>
+                                            <div style="display: flex; gap: 12px; font-size: 0.72rem; color: var(--text-muted);">
+                                                <span>Routers: <strong id="dash-router-count" style="color: var(--primary);">0</strong></span>
+                                                <span>OLTs: <strong id="dash-olt-count" style="color: hsl(280, 80%, 60%);">0</strong></span>
+                                            </div>
+                                            <div style="display: flex; height: 4px; background: var(--border-subtle); border-radius: 2px; overflow: hidden; gap: 2px;">
+                                                <div id="dash-router-progress" style="height: 100%; width: 0%; background: var(--primary);"></div>
+                                                <div id="dash-olt-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 60%);"></div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <!-- Health Index Card -->
-                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Network Health</span>
-                                            <i class="fa-solid fa-heart-pulse" style="color: var(--success); font-size: 1.1rem;"></i>
-                                        </div>
-                                        <div style="display: flex; align-items: baseline; gap: 6px;">
-                                            <span id="dash-health-index" style="font-size: 2.2rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);">100%</span>
-                                            <span style="font-size: 0.78rem; color: var(--text-muted);">Health Index</span>
-                                        </div>
-                                        <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; font-size: 0.72rem;">
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Devices Online:</span>
-                                                <span id="dash-online-status" style="font-weight: 600; color: var(--success);">0 / 0</span>
+                                        <!-- Links Strip -->
+                                        <div style="background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                                <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Active Links</span>
+                                                <span id="dash-total-links" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main);">0</span>
                                             </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Devices Maintenance:</span>
-                                                <span id="dash-maint-status" style="font-weight: 600; color: var(--warning);">0</span>
+                                            <div style="display: flex; gap: 12px; font-size: 0.72rem; color: var(--text-muted);">
+                                                <span>Interlink: <strong id="dash-interlink-count" style="color: var(--primary);">0</strong></span>
+                                                <span>Uplink: <strong id="dash-uplink-count" style="color: hsl(280, 80%, 65%);">0</strong></span>
                                             </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Devices Offline:</span>
-                                                <span id="dash-offline-status" style="font-weight: 600; color: var(--danger);">0</span>
+                                            <div style="display: flex; height: 4px; background: var(--border-subtle); border-radius: 2px; overflow: hidden; gap: 2px;">
+                                                <div id="dash-interlink-progress" style="height: 100%; width: 0%; background: var(--primary);"></div>
+                                                <div id="dash-uplink-progress" style="height: 100%; width: 0%; background: hsl(280, 80%, 65%);"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Health Strip -->
+                                        <div style="background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                                <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Network Health</span>
+                                                <span id="dash-health-index" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--success);">100%</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 0.71rem; color: var(--text-muted);">
+                                                <span>Online: <strong id="dash-online-status" style="color: var(--success);">0/0</strong></span>
+                                                <span>Maint: <strong id="dash-maint-status" style="color: #f59e0b;">0</strong></span>
+                                                <span>Offline: <strong id="dash-offline-status" style="color: var(--danger);">0</strong></span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- 2-Column Stats Breakdown Panels -->
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                                <!-- Optical Power Telemetry & NOK Connections Summary Card (Placed right below KPI strip) -->
+                                <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 16px;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-bolt" style="color: #f59e0b; font-size: 1.05rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Optical Power Telemetry & NOK Link Analysis</h4>
+                                        </div>
+                                        <span id="dash-optical-timestamp" style="font-size: 0.72rem; color: #10b981; font-family: monospace; background: rgba(16, 185, 129, 0.1); padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);">Last Scan: -</span>
+                                    </div>
+
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+                                        <div style="background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                                            <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Scanned Ports</div>
+                                            <div id="dash-opt-total" style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(16, 185, 129, 0.05); padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.18);">
+                                            <div style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: 600;">Normal (OK)</div>
+                                            <div id="dash-opt-normal" style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #10b981; margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(249, 115, 22, 0.06); padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(249, 115, 22, 0.22);">
+                                            <div style="font-size: 0.68rem; color: #f97316; text-transform: uppercase; font-weight: 600;">Warning (Low/High)</div>
+                                            <div id="dash-opt-warning" style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #f97316; margin-top: 2px;">0</div>
+                                        </div>
+                                        <div style="background: rgba(239, 68, 68, 0.06); padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                                            <div style="font-size: 0.68rem; color: #ef4444; text-transform: uppercase; font-weight: 600;">Alarm (Critical NOK)</div>
+                                            <div id="dash-opt-alarm" style="font-size: 1.4rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #ef4444; margin-top: 2px;">0</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Breakdown by Connection Category: Router-Router, Router-OLT, OLT-OLT -->
+                                    <div id="dash-opt-category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
+                                        <!-- Populated dynamically with Router - Router, Router - OLT, and OLT - OLT breakdown cards -->
+                                    </div>
+
+                                    <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 12px;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                            <div style="font-size: 0.76rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+                                                <span>NOK Optical Connections by Category (Click any row to inspect on Topology Map)</span>
+                                            </div>
+                                            <div id="dash-opt-category-filters" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                                                <button type="button" id="dash-opt-hide-unreachable-btn" onclick="toggleDashHideUnreachable()" title="Hide unreachable devices/ports from NOK Optical Connections and Alarm counts" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; transition: all 0.2s;">
+                                                    <i class="fa-solid fa-eye-slash"></i>
+                                                    <span>Hide Unreachable</span>
+                                                    <span id="dash-opt-unreachable-badge" style="padding: 0 5px; border-radius: 999px; background: rgba(239, 68, 68, 0.2); color: #f87171; font-family: monospace; font-size: 0.64rem;">0</span>
+                                                </button>
+                                                <button type="button" class="dash-opt-cat-btn active" data-cat="all" onclick="setDashOpticalCategoryFilter('all')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.18); color: #60a5fa; cursor: pointer;">All Categories</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-router" onclick="setDashOpticalCategoryFilter('router-router')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer;">Router - Router</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-olt" onclick="setDashOpticalCategoryFilter('router-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer;">Router - OLT</button>
+                                                <button type="button" class="dash-opt-cat-btn" data-cat="olt-olt" onclick="setDashOpticalCategoryFilter('olt-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer;">OLT - OLT</button>
+                                            </div>
+                                        </div>
+                                        <div id="dash-opt-nok-list" style="display: flex; flex-direction: column; gap: 14px; max-height: 460px; overflow-y: auto; padding-right: 4px;">
+                                            <!-- Populated dynamically with divided Router-Router, Router-OLT, and OLT-OLT NOK sections -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Detailed Equipment Sections (Router & OLT Side-by-Side) -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 18px;">
+                                    <!-- Router Details Section -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 14px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+                                            <i class="fa-solid fa-server" style="color: var(--primary); font-size: 1rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 700; color: var(--text-main);">Router Resiliency & SPOF Analysis</h4>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                            <div style="background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Routers</div>
+                                                <div id="dash-router-total" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                            <div style="background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Core Routers</div>
+                                                <div id="dash-router-core" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 0.74rem; background: var(--bg-subtle); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Aggregation:</span>
+                                                <span id="dash-router-agg" style="font-weight: 600; color: var(--text-main);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Online:</span>
+                                                <span id="dash-router-online" style="font-weight: 600; color: var(--success);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Maintenance:</span>
+                                                <span id="dash-router-maint" style="font-weight: 600; color: #f59e0b;">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Offline:</span>
+                                                <span id="dash-router-offline" style="font-weight: 600; color: var(--danger);">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Router SPOF vs Resilient Graph Section -->
+                                        <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+                                            <div style="height: 8px; background: var(--border-subtle); border-radius: 4px; overflow: hidden; display: flex; width: 100%;">
+                                                <div id="dash-router-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient Routers (No SPOF)"></div>
+                                                <div id="dash-router-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF Routers (At Risk)"></div>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 0.71rem;">
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--success);"></span>
+                                                    <span>Resilient: <strong id="dash-router-resilient-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--danger);"></span>
+                                                    <span>SPOF Risk: <strong id="dash-router-spof-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Router SPOF List and Filters Section -->
+                                        <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.8rem;"></i>
+                                                    <span>SPOF Risk Routers</span>
+                                                </div>
+                                                <div style="display: flex; gap: 6px; align-items: center;">
+                                                    <input type="text" id="dash-router-spof-name-filter" placeholder="Filter Router..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.68rem; outline: none; height: 24px; width: 125px;" />
+                                                    <select id="dash-router-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.68rem; outline: none; cursor: pointer; height: 24px; min-width: 95px;">
+                                                        <option value="all">All Brands</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div id="dash-router-spof-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                                                <!-- Dynamic list of Routers with SPOF will render here -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- OLT Details Section -->
+                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 14px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+                                            <i class="fa-solid fa-box" style="color: hsl(280, 80%, 60%); font-size: 1rem;"></i>
+                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 700; color: var(--text-main);">OLT Resiliency & SPOF Analysis</h4>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                            <div style="background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total OLTs</div>
+                                                <div id="dash-olt-total" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                            <div style="background: var(--bg-subtle); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; justify-content: center;">
+                                                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Uplinks Connected</div>
+                                                <div id="dash-olt-uplinks" style="font-size: 1.35rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 0.74rem; background: var(--bg-subtle); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Online OLTs:</span>
+                                                <span id="dash-olt-online" style="font-weight: 600; color: var(--success);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Maintenance:</span>
+                                                <span id="dash-olt-maint" style="font-weight: 600; color: #f59e0b;">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Offline OLTs:</span>
+                                                <span id="dash-olt-offline" style="font-weight: 600; color: var(--danger);">0</span>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <span>Uplink Cap:</span>
+                                                <span id="dash-olt-capacity" style="font-weight: 600; color: var(--primary);">0 Gbps</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- OLT SPOF vs Resilient Graph Section -->
+                                        <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+                                            <div style="height: 8px; background: var(--border-subtle); border-radius: 4px; overflow: hidden; display: flex; width: 100%;">
+                                                <div id="dash-olt-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient OLTs (No SPOF)"></div>
+                                                <div id="dash-olt-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF OLTs (At Risk)"></div>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 0.71rem;">
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--success);"></span>
+                                                    <span>Resilient: <strong id="dash-olt-resilient-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                                <span style="display: flex; align-items: center; gap: 6px;">
+                                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--danger);"></span>
+                                                    <span>SPOF Risk: <strong id="dash-olt-spof-count" style="color: var(--text-main);">0</strong></span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                                                <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.8rem;"></i>
+                                                    <span>SPOF Risk OLTs</span>
+                                                </div>
+                                                <div style="display: flex; gap: 6px; align-items: center;">
+                                                    <input type="text" id="dash-olt-spof-name-filter" placeholder="Filter OLT..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.68rem; outline: none; height: 24px; width: 125px;" />
+                                                    <select id="dash-olt-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.68rem; outline: none; cursor: pointer; height: 24px; min-width: 95px;">
+                                                        <option value="all">All Brands</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div id="dash-olt-spof-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                                                <!-- Dynamic list of OLTs with SPOF will render here -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2-Column Stats Breakdown Panels (Brand & Capacity) -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 18px;">
                                     <!-- Brand & Model Distribution -->
                                     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
                                         <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Equipment Brand Distribution</h4>
@@ -442,7 +603,7 @@
                                     <!-- Capacity Distribution -->
                                     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 18px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 12px;">
                                         <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--text-main);">Connection Capacity Allocation</h4>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: center; padding: 8px 12px; background: rgba(59, 130, 246, 0.03); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.05); font-size: 0.76rem;">
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: center; padding: 8px 12px; background: var(--bg-subtle); border-radius: 6px; border: 1px solid var(--border-subtle); font-size: 0.76rem;">
                                             <div>
                                                 <span>Total Interlink Cap:</span>
                                                 <strong id="dash-interlink-bandwidth" style="color: var(--primary); font-family: 'Outfit', sans-serif; margin-left: 5px;">0 Gbps</strong>
@@ -468,218 +629,6 @@
                                                     <!-- Generated dynamically -->
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Detailed Equipment Sections (Router & OLT) -->
-                                <div style="display: flex; flex-direction: column; gap: 20px;">
-                                    <!-- Router Details Section -->
-                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 15px;">
-                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                            <i class="fa-solid fa-server" style="color: var(--primary); font-size: 1.1rem;"></i>
-                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Router Summary Data</h4>
-                                        </div>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
-                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Total Routers</div>
-                                                <div id="dash-router-total" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
-                                            </div>
-                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
-                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Core Routers</div>
-                                                <div id="dash-router-core" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
-                                            </div>
-                                        </div>
-                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.78rem; background: rgba(255,255,255,0.01); padding: 12px 18px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02);">
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Aggregation Routers:</span>
-                                                <span id="dash-router-agg" style="font-weight: 600; color: var(--text-main);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Online Routers:</span>
-                                                <span id="dash-router-online" style="font-weight: 600; color: var(--success);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Maintenance Routers:</span>
-                                                <span id="dash-router-maint" style="font-weight: 600; color: var(--warning);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Offline Routers:</span>
-                                                <span id="dash-router-offline" style="font-weight: 600; color: var(--danger);">0</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Router SPOF vs Resilient Graph Section -->
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 8px;">
-                                            <div style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">
-                                                Router Resiliency Analysis (SPOF vs. Resilient Redundant)
-                                            </div>
-                                            <div style="height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; display: flex; width: 100%;">
-                                                <div id="dash-router-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient Routers (No SPOF)"></div>
-                                                <div id="dash-router-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF Routers (At Risk)"></div>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-top: 2px;">
-                                                <span style="display: flex; align-items: center; gap: 6px;">
-                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></span>
-                                                    <span>Resilient (No SPOF): <strong id="dash-router-resilient-count" style="color: var(--text-main);">0</strong></span>
-                                                </span>
-                                                <span style="display: flex; align-items: center; gap: 6px;">
-                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger);"></span>
-                                                    <span>SPOF Risk: <strong id="dash-router-spof-count" style="color: var(--text-main);">0</strong></span>
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Router SPOF List and Filters Section -->
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 10px;">
-                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
-                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.9rem;"></i>
-                                                    <span>SPOF Risk Routers (Single Non-Dual-Track Link - Click to select)</span>
-                                                </div>
-                                                <div style="display: flex; gap: 8px; align-items: center;">
-                                                    <input type="text" id="dash-router-spof-name-filter" placeholder="Filter by Router name..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; height: 24px; width: 150px;" />
-                                                    <select id="dash-router-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; cursor: pointer; height: 24px; min-width: 110px;">
-                                                        <option value="all">All Brands</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div id="dash-router-spof-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 5px;">
-                                                <!-- Dynamic list of Routers with SPOF will render here -->
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- OLT Details Section -->
-                                    <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 15px;">
-                                        <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                            <i class="fa-solid fa-box" style="color: hsl(280, 80%, 60%); font-size: 1.1rem;"></i>
-                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">OLT Summary Data</h4>
-                                        </div>
-                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
-                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Total OLTs</div>
-                                                <div id="dash-olt-total" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
-                                            </div>
-                                            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; flex-direction: column; justify-content: center;">
-                                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.02em;">Uplinks Connected</div>
-                                                <div id="dash-olt-uplinks" style="font-size: 1.6rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
-                                            </div>
-                                        </div>
-                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 0.78rem; background: rgba(255,255,255,0.01); padding: 12px 18px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02);">
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Online OLT Cabinets:</span>
-                                                <span id="dash-olt-online" style="font-weight: 600; color: var(--success);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Maintenance OLT Cabinets:</span>
-                                                <span id="dash-olt-maint" style="font-weight: 600; color: var(--warning);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Offline OLT Cabinets:</span>
-                                                <span id="dash-olt-offline" style="font-weight: 600; color: var(--danger);">0</span>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between;">
-                                                <span>Aggregated Uplink Capacity:</span>
-                                                <span id="dash-olt-capacity" style="font-weight: 600; color: var(--primary);">0 Gbps</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- OLT SPOF vs Resilient Graph Section -->
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 8px;">
-                                            <div style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;">
-                                                OLT Resiliency Analysis (SPOF vs. Resilient Redundant)
-                                            </div>
-                                            <div style="height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; display: flex; width: 100%;">
-                                                <div id="dash-olt-resilient-bar" style="height: 100%; width: 0%; background: var(--success); transition: width 0.8s ease;" title="Resilient OLTs (No SPOF)"></div>
-                                                <div id="dash-olt-spof-bar" style="height: 100%; width: 0%; background: var(--danger); transition: width 0.8s ease;" title="SPOF OLTs (At Risk)"></div>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-top: 2px;">
-                                                <span style="display: flex; align-items: center; gap: 6px;">
-                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);"></span>
-                                                    <span>Resilient (No SPOF): <strong id="dash-olt-resilient-count" style="color: var(--text-main);">0</strong></span>
-                                                </span>
-                                                <span style="display: flex; align-items: center; gap: 6px;">
-                                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger);"></span>
-                                                    <span>SPOF Risk: <strong id="dash-olt-spof-count" style="color: var(--text-main);">0</strong></span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 5px; display: flex; flex-direction: column; gap: 10px;">
-                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
-                                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--danger); font-size: 0.9rem;"></i>
-                                                    <span>SPOF Risk OLTs (Single Non-Dual-Track Link - Click to select)</span>
-                                                </div>
-                                                <div style="display: flex; gap: 8px; align-items: center;">
-                                                    <input type="text" id="dash-olt-spof-name-filter" placeholder="Filter by OLT name..." style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; height: 24px; width: 150px;" />
-                                                    <select id="dash-olt-spof-brand-filter" style="background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 2px 8px; font-size: 0.7rem; outline: none; cursor: pointer; height: 24px; min-width: 110px;">
-                                                        <option value="all">All Brands</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div id="dash-olt-spof-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 5px;">
-                                                <!-- Dynamic list of OLTs with SPOF will render here -->
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Optical Power Telemetry & NOK Connections Summary Card -->
-                                <div class="dashboard-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; box-shadow: var(--box-shadow); display: flex; flex-direction: column; gap: 16px;">
-                                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <i class="fa-solid fa-bolt" style="color: #f59e0b; font-size: 1.1rem;"></i>
-                                            <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Optical Power Telemetry & NOK Link Analysis</h4>
-                                        </div>
-                                        <span id="dash-optical-timestamp" style="font-size: 0.72rem; color: #10b981; font-family: monospace; background: rgba(16, 185, 129, 0.1); padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.25);">Last Scan: -</span>
-                                    </div>
-
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px;">
-                                        <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
-                                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Scanned Ports</div>
-                                            <div id="dash-opt-total" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-main); margin-top: 2px;">0</div>
-                                        </div>
-                                        <div style="background: rgba(16, 185, 129, 0.05); padding: 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.18);">
-                                            <div style="font-size: 0.7rem; color: #10b981; text-transform: uppercase; font-weight: 600;">Normal (OK)</div>
-                                            <div id="dash-opt-normal" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #10b981; margin-top: 2px;">0</div>
-                                        </div>
-                                        <div style="background: rgba(249, 115, 22, 0.06); padding: 12px; border-radius: 6px; border: 1px solid rgba(249, 115, 22, 0.22);">
-                                            <div style="font-size: 0.7rem; color: #f97316; text-transform: uppercase; font-weight: 600;">Warning (Low/High)</div>
-                                            <div id="dash-opt-warning" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #f97316; margin-top: 2px;">0</div>
-                                        </div>
-                                        <div style="background: rgba(239, 68, 68, 0.06); padding: 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.25);">
-                                            <div style="font-size: 0.7rem; color: #ef4444; text-transform: uppercase; font-weight: 600;">Alarm (Critical NOK)</div>
-                                            <div id="dash-opt-alarm" style="font-size: 1.5rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: #ef4444; margin-top: 2px;">0</div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Breakdown by Connection Category: Router-Router, Router-OLT, OLT-OLT -->
-                                    <div id="dash-opt-category-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
-                                        <!-- Populated dynamically with Router - Router, Router - OLT, and OLT - OLT breakdown cards -->
-                                    </div>
-
-                                    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; flex-direction: column; gap: 12px;">
-                                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                                            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px;">
-                                                <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
-                                                <span>NOK Optical Connections by Category (Click any row to inspect on Topology Map)</span>
-                                            </div>
-                                            <div id="dash-opt-category-filters" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                                                <button type="button" id="dash-opt-hide-unreachable-btn" onclick="toggleDashHideUnreachable()" title="Hide unreachable devices/ports from NOK Optical Connections and Alarm counts" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; transition: all 0.2s;">
-                                                    <i class="fa-solid fa-eye-slash"></i>
-                                                    <span>Hide Unreachable</span>
-                                                    <span id="dash-opt-unreachable-badge" style="padding: 0 5px; border-radius: 999px; background: rgba(239, 68, 68, 0.2); color: #f87171; font-family: monospace; font-size: 0.64rem;">0</span>
-                                                </button>
-                                                <button type="button" class="dash-opt-cat-btn active" data-cat="all" onclick="setDashOpticalCategoryFilter('all')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.18); color: #60a5fa; cursor: pointer;">All Categories</button>
-                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-router" onclick="setDashOpticalCategoryFilter('router-router')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">Router - Router</button>
-                                                <button type="button" class="dash-opt-cat-btn" data-cat="router-olt" onclick="setDashOpticalCategoryFilter('router-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">Router - OLT</button>
-                                                <button type="button" class="dash-opt-cat-btn" data-cat="olt-olt" onclick="setDashOpticalCategoryFilter('olt-olt')" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer;">OLT - OLT</button>
-                                            </div>
-                                        </div>
-                                        <div id="dash-opt-nok-list" style="display: flex; flex-direction: column; gap: 14px; max-height: 460px; overflow-y: auto; padding-right: 4px;">
-                                            <!-- Populated dynamically with divided Router-Router, Router-OLT, and OLT-OLT NOK sections -->
                                         </div>
                                     </div>
                                 </div>
@@ -1186,6 +1135,9 @@
                                 </div>
                                 <button type="button" id="console-optical-nok-filter-btn" title="Show only NOK (Warning / Alarm) links and their pair ports" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
                                     <i class="fa-solid fa-triangle-exclamation" style="color: #f97316;"></i> NOK Only
+                                </button>
+                                <button type="button" id="console-optical-collapse-all-btn" title="Collapse or expand all connection groups" style="padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-subtle); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                                    <i class="fa-solid fa-angles-up"></i> <span>Collapse All</span>
                                 </button>
                                 <span id="console-diagnose-progress" style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;"></span>
                                 <button id="console-close-diagnostics-btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem;" title="Close table"><i class="fa-solid fa-xmark"></i></button>

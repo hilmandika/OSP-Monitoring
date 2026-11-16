@@ -9077,9 +9077,15 @@ async function initConsoleView() {
                 </tr>
             `;
         } else {
+            if (!consoleState.collapsedGroups) {
+                consoleState.collapsedGroups = new Set();
+            }
             filteredGroups.forEach(grp => {
-                // Connection Group Header Row
+                // Connection Group Header Row (Click to Collapse / Expand)
+                const isCollapsed = consoleState.collapsedGroups.has(grp.key);
                 const headerTr = document.createElement("tr");
+                headerTr.style.cursor = "pointer";
+                headerTr.style.userSelect = "none";
                 const grpAccent = grp.maxSev >= 3 ? "#ef4444" : grp.maxSev === 2 ? "#f59e0b" : "#3b82f6";
                 const grpBadgeText = grp.maxSev >= 3 ? "ALARM" : grp.maxSev === 2 ? "WARNING" : "OK";
                 const grpBadgeStyle = grp.maxSev >= 3
@@ -9098,6 +9104,7 @@ async function initConsoleView() {
                     <td colspan="8" style="padding: 8px 12px; background: var(--bg-elevated); border-top: 2px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-left: 3px solid ${grpAccent};">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-main); font-size: 0.78rem;">
+                                <i class="fa-solid ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} grp-chevron" style="width: 12px; color: var(--text-muted); font-size: 0.7rem; transition: transform 0.15s;"></i>
                                 <i class="fa-solid fa-link" style="color: ${grpAccent}; font-size: 0.75rem;"></i>
                                 <span>${escapeHTML(grp.devA)}</span>
                                 <span style="color: var(--text-muted); font-weight: 400;">↔</span>
@@ -9108,6 +9115,22 @@ async function initConsoleView() {
                         </div>
                     </td>
                 `;
+
+                const groupChildRows = [];
+                headerTr.addEventListener("click", () => {
+                    const nowCollapsed = !consoleState.collapsedGroups.has(grp.key);
+                    if (nowCollapsed) {
+                        consoleState.collapsedGroups.add(grp.key);
+                    } else {
+                        consoleState.collapsedGroups.delete(grp.key);
+                    }
+                    const chev = headerTr.querySelector(".grp-chevron");
+                    if (chev) {
+                        chev.className = `fa-solid ${nowCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} grp-chevron`;
+                    }
+                    groupChildRows.forEach(r => r.classList.toggle("hidden", nowCollapsed));
+                });
+
                 diagTbody.appendChild(headerTr);
 
                 grp.entries.forEach((entry, idx) => {
@@ -9118,7 +9141,8 @@ async function initConsoleView() {
                         const linkLabel = `${entry.conn.link || "Link"} • ${entry.conn.bitrate || 10}G`;
 
                         const trA = document.createElement("tr");
-                        trA.style.borderBottom = "1px solid rgba(255, 255, 255, 0.03)";
+                        trA.style.borderBottom = "1px solid var(--border-subtle)";
+                        if (isCollapsed) trA.classList.add("hidden");
                         trA.innerHTML = buildOpticalRowHtml(entry.srcRec, {
                             isPeer: false,
                             linkLabel,
@@ -9129,9 +9153,11 @@ async function initConsoleView() {
                             port: entry.conn.source_interface
                         });
                         diagTbody.appendChild(trA);
+                        groupChildRows.push(trA);
 
                         const trB = document.createElement("tr");
-                        trB.style.borderBottom = "1px solid rgba(255, 255, 255, 0.08)";
+                        trB.style.borderBottom = "1px solid var(--border-color)";
+                        if (isCollapsed) trB.classList.add("hidden");
                         trB.innerHTML = buildOpticalRowHtml(entry.tgtRec, {
                             isPeer: true,
                             linkLabel: "Peer",
@@ -9142,11 +9168,14 @@ async function initConsoleView() {
                             port: entry.conn.target_interface
                         });
                         diagTbody.appendChild(trB);
+                        groupChildRows.push(trB);
                     } else {
                         const tr = document.createElement("tr");
-                        tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.05)";
+                        tr.style.borderBottom = "1px solid var(--border-subtle)";
+                        if (isCollapsed) tr.classList.add("hidden");
                         tr.innerHTML = buildOpticalRowHtml(entry.rec);
                         diagTbody.appendChild(tr);
+                        groupChildRows.push(tr);
                     }
                 });
             });
@@ -9168,6 +9197,7 @@ async function initConsoleView() {
     const optFilterInput = document.getElementById("console-optical-filter-input");
     const optFilterClear = document.getElementById("console-optical-filter-clear");
     const optNokFilterBtn = document.getElementById("console-optical-nok-filter-btn");
+    const optCollapseAllBtn = document.getElementById("console-optical-collapse-all-btn");
 
     if (optFilterInput && !optFilterInput.dataset.listenerBound) {
         optFilterInput.dataset.listenerBound = "true";
@@ -9202,8 +9232,37 @@ async function initConsoleView() {
         optNokFilterBtn.addEventListener("click", () => {
             consoleState.opticalNokOnly = !consoleState.opticalNokOnly;
             optNokFilterBtn.style.borderColor = consoleState.opticalNokOnly ? "#f97316" : "var(--border-color)";
-            optNokFilterBtn.style.background = consoleState.opticalNokOnly ? "rgba(249, 115, 22, 0.16)" : "rgba(255,255,255,0.03)";
+            optNokFilterBtn.style.background = consoleState.opticalNokOnly ? "rgba(249, 115, 22, 0.16)" : "var(--bg-subtle)";
             optNokFilterBtn.style.color = consoleState.opticalNokOnly ? "#fb923c" : "var(--text-muted)";
+            if (consoleState.savedScanData) {
+                renderSavedOpticalScan(consoleState.savedScanData);
+            }
+        });
+    }
+
+    if (optCollapseAllBtn && !optCollapseAllBtn.dataset.listenerBound) {
+        optCollapseAllBtn.dataset.listenerBound = "true";
+        optCollapseAllBtn.addEventListener("click", () => {
+            if (!consoleState.collapsedGroups) {
+                consoleState.collapsedGroups = new Set();
+            }
+            consoleState.allGroupsCollapsed = !consoleState.allGroupsCollapsed;
+            if (consoleState.allGroupsCollapsed && consoleState.savedScanData) {
+                // Collect all group keys
+                const conns = (appState.nms && Array.isArray(appState.nms.connections)) ? appState.nms.connections : [];
+                conns.forEach(c => {
+                    const pair = [c.source || "-", c.target || "-"].sort((a, b) => a.localeCompare(b));
+                    consoleState.collapsedGroups.add(`${pair[0]}||${pair[1]}`);
+                });
+                (consoleState.savedScanData.results || []).forEach(r => {
+                    const pair = [r.router || "-", r.target || "-"].sort((a, b) => a.localeCompare(b));
+                    consoleState.collapsedGroups.add(`${pair[0]}||${pair[1]}`);
+                });
+                optCollapseAllBtn.innerHTML = '<i class="fa-solid fa-angles-down"></i> <span>Expand All</span>';
+            } else {
+                consoleState.collapsedGroups.clear();
+                optCollapseAllBtn.innerHTML = '<i class="fa-solid fa-angles-up"></i> <span>Collapse All</span>';
+            }
             if (consoleState.savedScanData) {
                 renderSavedOpticalScan(consoleState.savedScanData);
             }
